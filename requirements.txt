@@ -1,0 +1,12 @@
+# --- Train ---
+deepspeed
+hydra-core
+pytorch-lightning
+wandb
+
+# --- Tune ---
+optuna
+ray[tune]
+
+# --- Test ---
+lightning-bolts
