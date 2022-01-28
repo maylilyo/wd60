@@ -4,10 +4,9 @@ from pathlib import Path
 # PIP
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
-from pl_bolts.datasets import DummyDataset
 
 # Custom
-from custom.dataset import CustomDataset
+from custom.vimeo.dataset import Vimeo
 
 
 class CustomDataModule(LightningDataModule):
@@ -18,21 +17,9 @@ class CustomDataModule(LightningDataModule):
         work_dir = Path(cfg.common.work_dir).absolute()
         self.data_dir = work_dir / cfg.data_module.data_dir
 
-        self.set_datasets()
-
-    def set_datasets(self):
-        # self.train_dataset = CustomDataset(
-        #     seq_len=self.seq_len,
-        # )
-        # self.valid_dataset = CustomDataset(
-        #     seq_len=self.seq_len,
-        # )
-        # self.test_dataset = CustomDataset(
-        #     seq_len=self.seq_len,
-        # )
-        self.train_dataset = DummyDataset((1, 28, 28), (1,))
-        self.valid_dataset = DummyDataset((1, 28, 28), (1,))
-        self.test_dataset = DummyDataset((1, 28, 28), (1,))
+    def setup(self, stage):
+        self.train_dataset = Vimeo(data_dir=self.data_dir, state='train')  # length: 51313
+        self.test_dataset = Vimeo(data_dir=self.data_dir, state='test')  # length: 3783
 
     def train_dataloader(self):
         return DataLoader(
@@ -44,7 +31,7 @@ class CustomDataModule(LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.valid_dataset,
+            self.test_dataset,
             batch_size=self.cfg.data_module.batch_size,
             shuffle=False,
             num_workers=self.cfg.data_module.num_workers,
