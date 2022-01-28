@@ -8,5 +8,6 @@ wandb
 optuna
 ray[tune]
 
-# --- Test ---
-lightning-bolts
+# --- Project ---
+cupy-cuda113
+imageio

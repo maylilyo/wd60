@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import OneCycleLR, CosineAnnealingWarmRestarts, St
 import pytorch_lightning as pl
 
 # Custom
-from custom.model import CustomModel
+from custom.softsplat.model import SoftSplat
 import helper.loss as c_loss
 
 
@@ -16,7 +16,7 @@ class CustomModule(pl.LightningModule):
         super().__init__()
         self.cfg = cfg
 
-        self.model = CustomModel(cfg.model)
+        self.model = SoftSplat(cfg.model)
 
         self.criterion = self.get_loss_function()
         self.optimizer = self.get_optimizer()
@@ -81,11 +81,12 @@ class CustomModule(pl.LightningModule):
         raise ValueError(
             f'{name} is not on the custom scheduler list!')
 
-    def forward(self, x):
-        # x : (batch_size, ???)
+    def forward(self, img1, img2):
+        # img1: (batch_size, channel, width, height)
+        # img2: (batch_size, channel, width, height)
 
-        out = self.model(x)
-        # out : (batch_size, ???)
+        out = self.model(img1, img2)
+        # out : (batch_size, channel, width, height)
 
         return out
 
@@ -99,32 +100,41 @@ class CustomModule(pl.LightningModule):
         }
 
     def common_step(self, batch, state):
-        x, y = batch
-        # x: (batch_size, ???)
-        # y: (batch_size, ???)
+        img1, img2, y = batch
+        # img1: (batch_size, channel, width, height)
+        # img2: (batch_size, channel, width, height)
+        # y: (batch_size, channel, width, height)
 
-        x, x_hat = self(x)
+        y_hat = self(img1, img2)
+        # y_hat: (batch_size, channel, width, height)
 
-        loss = self.criterion(x_hat, x)
+        loss = self.criterion(y_hat, y)
+        loss /= len(y)
 
-        return loss
+        metric = self.metric_function(y_hat, y)
+        lr = self.lr_scheduler.get_last_lr()[0]
+        self.log('lr', lr)
+
+        return loss, metric
 
     def training_step(self, batch, batch_idx):
 
-        loss = self.common_step(batch, state='train')
+        loss, metric = self.common_step(batch, state='train')
 
         self.log('train_loss', loss)
+        self.log('train_ssim', metric)
         return loss
 
     def validation_step(self, batch, batch_idx):
 
-        loss = self.common_step(batch, state='valid')
+        loss, metric = self.common_step(batch, state='valid')
 
-        self.log('val_loss', loss, prog_bar=True,
-                 sync_dist=True, on_step=False, on_epoch=True)
+        self.log('val_loss', loss, sync_dist=True)
+        self.log('val_ssim', metric, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
 
-        loss = self.common_step(batch, state='test')
+        loss, metric = self.common_step(batch, state='test')
 
         self.log('test_loss', loss, sync_dist=True)
+        self.log('test_ssim', metric, sync_dist=True)
