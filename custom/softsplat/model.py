@@ -1,7 +1,7 @@
 # PIP
 import torch
 import torch.nn as nn
-from torch.nn.functional import interpolate, l1_loss
+import torch.nn.functional as F
 
 # Custom
 from .grid_net import GridNet
@@ -78,7 +78,7 @@ class SoftSplat(nn.Module):
     def scale_flow_zero(self, flow):
         SCALE = 20.0
 
-        raw_scaled = (SCALE / 1) * interpolate(
+        raw_scaled = (SCALE / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
             mode='bilinear',
@@ -94,19 +94,19 @@ class SoftSplat(nn.Module):
         elif self.flow_net_name == 'ifnet':
             SCALE = 1.0
 
-        raw_scaled = (SCALE / 1) * interpolate(
+        raw_scaled = (SCALE / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
             mode='bilinear',
             align_corners=False,
         )
-        half_scaled = (SCALE / 2) * interpolate(
+        half_scaled = (SCALE / 2) * F.interpolate(
             input=flow,
             size=(self.height // 2, self.width // 2),
             mode='bilinear',
             align_corners=False,
         )
-        quarter_scaled = (SCALE / 4) * interpolate(
+        quarter_scaled = (SCALE / 4) * F.interpolate(
             input=flow,
             size=(self.height // 4, self.width // 4),
             mode='bilinear',
@@ -118,13 +118,13 @@ class SoftSplat(nn.Module):
     def scale_tenMetric(self, tenMetric):
 
         raw_scaled = tenMetric
-        half_scaled = interpolate(
+        half_scaled = F.interpolate(
             input=tenMetric,
             size=(self.height // 2, self.width // 2),
             mode='bilinear',
             align_corners=False,
         )
-        quarter_scaled = interpolate(
+        quarter_scaled = F.interpolate(
             input=tenMetric,
             size=(self.height // 4, self.width // 4),
             mode='bilinear',
@@ -166,8 +166,8 @@ class SoftSplat(nn.Module):
         flow_1to2_pyramid = self.scale_flow(flow_1tot)
         flow_2to1_pyramid = self.scale_flow(flow_2tot)
 
-        target_1to2 = backwarp(img2, flow_1to2_zero)
-        target_2to1 = backwarp(img1, flow_2to1_zero)
+        target_1to2 = self.backwarp(img2, flow_1to2_zero)
+        target_2to1 = self.backwarp(img1, flow_2to1_zero)
 
         # flow_1to2_pyramid, flow_2to1_pyramid: [raw_scaled, half_scaled, quarter_scaled]
         # raw_scaled: (num_batches, 2, height, width)
@@ -175,7 +175,7 @@ class SoftSplat(nn.Module):
         # quarter_scaled: (num_batches, 2, height / 4, width / 4)
 
         # ↓ Softmax Splatting
-        tenMetric_1to2 = l1_loss(
+        tenMetric_1to2 = F.l1_loss(
             input=img1,
             target=target_1to2,
             reduction='none',
@@ -195,35 +195,31 @@ class SoftSplat(nn.Module):
         # quarter_scaled: (num_batches, 1, height / 4, width / 4)
 
         warped_img1 = softmax_splatting(
-            tenInput=img1,
-            tenFlow=flow_1to2_pyramid[0],
-            tenMetric=self.beta1 * tenMetric_ls_1to2[0],
-            _type='softmax',
+            input=img1,
+            flow=flow_1to2_pyramid[0],
+            metric=self.beta1 * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_1 = softmax_splatting(
-            tenInput=feature_pyramid1[0],
-            tenFlow=flow_1to2_pyramid[0],
-            tenMetric=self.beta1 * tenMetric_ls_1to2[0],
-            _type='softmax',
+            input=feature_pyramid1[0],
+            flow=flow_1to2_pyramid[0],
+            metric=self.beta1 * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_2 = softmax_splatting(
-            tenInput=feature_pyramid1[1],
-            tenFlow=flow_1to2_pyramid[1],
-            tenMetric=self.beta1 * tenMetric_ls_1to2[1],
-            _type='softmax',
+            input=feature_pyramid1[1],
+            flow=flow_1to2_pyramid[1],
+            metric=self.beta1 * tenMetric_ls_1to2[1],
         )
         warped_pyramid1_3 = softmax_splatting(
-            tenInput=feature_pyramid1[2],
-            tenFlow=flow_1to2_pyramid[2],
-            tenMetric=self.beta1 * tenMetric_ls_1to2[2],
-            _type='softmax',
+            input=feature_pyramid1[2],
+            flow=flow_1to2_pyramid[2],
+            metric=self.beta1 * tenMetric_ls_1to2[2],
         )
         # warped_img1: (num_batches, 3, height, width)
         # warped_pyramid1_1: (num_batches, 32, height, width)
         # warped_pyramid1_2: (num_batches, 64, height / 2, width / 2)
         # warped_pyramid1_3: (num_batches, 96, height / 4, width / 4)
 
-        tenMetric_2to1 = l1_loss(
+        tenMetric_2to1 = F.l1_loss(
             input=img2,
             target=target_2to1,
             reduction='none',
@@ -233,28 +229,24 @@ class SoftSplat(nn.Module):
         tenMetric_ls_2to1 = self.scale_tenMetric(tenMetric_2to1)
 
         warped_img2 = softmax_splatting(
-            tenInput=img2,
-            tenFlow=flow_2to1_pyramid[0],
-            tenMetric=self.beta2 * tenMetric_ls_2to1[0],
-            _type='softmax',
+            input=img2,
+            flow=flow_2to1_pyramid[0],
+            metric=self.beta2 * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_1 = softmax_splatting(
-            tenInput=feature_pyramid2[0],
-            tenFlow=flow_2to1_pyramid[0],
-            tenMetric=self.beta2 * tenMetric_ls_2to1[0],
-            _type='softmax',
+            input=feature_pyramid2[0],
+            flow=flow_2to1_pyramid[0],
+            metric=self.beta2 * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_2 = softmax_splatting(
-            tenInput=feature_pyramid2[1],
-            tenFlow=flow_2to1_pyramid[1],
-            tenMetric=self.beta2 * tenMetric_ls_2to1[1],
-            _type='softmax',
+            input=feature_pyramid2[1],
+            flow=flow_2to1_pyramid[1],
+            metric=self.beta2 * tenMetric_ls_2to1[1],
         )
         warped_pyramid2_3 = softmax_splatting(
-            tenInput=feature_pyramid2[2],
-            tenFlow=flow_2to1_pyramid[2],
-            tenMetric=self.beta2 * tenMetric_ls_2to1[2],
-            _type='softmax',
+            input=feature_pyramid2[2],
+            flow=flow_2to1_pyramid[2],
+            metric=self.beta2 * tenMetric_ls_2to1[2],
         )
         # warped_img2: (num_batches, 3, height, width)
         # warped_pyramid2_1: (num_batches, 32, height, width)
