@@ -300,7 +300,7 @@ class SoftSplatFunc(torch.autograd.Function):
                 'grad_input': grad_input,
                 'grad_flow': grad_flow
             }))(
-                grid=tuple([int((nelement + 512 - 1) / 512), 1, 1]),
+                grid=tuple([int((n + 512 - 1) / 512), 1, 1]),
                 block=tuple([512, 1, 1]),
                 args=[n, input.data_ptr(), flow.data_ptr(), grad_output.data_ptr(), grad_input.data_ptr(), None]
             )
@@ -314,7 +314,7 @@ class SoftSplatFunc(torch.autograd.Function):
                 'grad_input': grad_input,
                 'grad_flow': grad_flow
             }))(
-                grid=tuple([int((nelement + 512 - 1) / 512), 1, 1]),
+                grid=tuple([int((n + 512 - 1) / 512), 1, 1]),
                 block=tuple([512, 1, 1]),
                 args=[n, input.data_ptr(), flow.data_ptr(), grad_output.data_ptr(), None, grad_flow.data_ptr()]
             )
