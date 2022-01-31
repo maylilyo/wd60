@@ -1,6 +1,7 @@
 # PIP
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class IFBlock(nn.Module):
@@ -130,7 +131,7 @@ class IFNet(nn.Module):
             mask = torch.sigmoid(mask)
 
             # warp
-            warped_img1 = warp(img1, flow[:, :2]) * mask
-            warped_img2 = warp(img2, flow[:, 2:4]) * (1 - mask)
+            warped_img1 = self.warp(img1, flow[:, :2]) * mask
+            warped_img2 = self.warp(img2, flow[:, 2:4]) * (1 - mask)
 
         return flow
