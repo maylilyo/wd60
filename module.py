@@ -22,6 +22,8 @@ class CustomModule(pl.LightningModule):
         self.optimizer = self.get_optimizer()
         self.lr_scheduler = self.get_lr_scheduler()
 
+        self.metric_function = c_loss.SSIMLoss()
+
     def get_loss_function(self):
         name = self.cfg.module.criterion.lower()
 
