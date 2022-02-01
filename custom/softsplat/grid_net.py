@@ -6,9 +6,9 @@ class LateralBlock(nn.Module):
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.f = nn.Sequential(
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_in, ch_out, kernel_size=3, padding=1),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
         if ch_in != ch_out:
@@ -26,9 +26,9 @@ class DownSamplingBlock(nn.Module):
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.f = nn.Sequential(
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_in, ch_out, kernel_size=3, stride=2, padding=1),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
 
@@ -41,9 +41,9 @@ class UpSamplingBlock(nn.Module):
         super().__init__()
         self.f = nn.Sequential(
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_in, ch_out, kernel_size=3, padding=1),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
 

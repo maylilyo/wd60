@@ -13,12 +13,12 @@ class IFBlock(nn.Module):
         )
         self.conv1 = nn.Sequential(
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
-            nn.PReLU(c // 2),
+            nn.ReLU(),
             nn.ConvTranspose2d(c // 2, 4, 4, 2, 1),
         )
         self.conv2 = nn.Sequential(
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
-            nn.PReLU(c // 2),
+            nn.ReLU(),
             nn.ConvTranspose2d(c // 2, 1, 4, 2, 1),
         )
         self.convblock0 = nn.Sequential(
@@ -43,11 +43,12 @@ class IFBlock(nn.Module):
         return nn.Sequential(
             nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
                       padding=padding, dilation=dilation, bias=True),
-            nn.PReLU(out_planes)
+            nn.ReLU(),
         )
 
     def forward(self, x, flow, scale):
-        x = F.interpolate(x, scale_factor=1. / scale, mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        if scale > 1:
+            x = F.interpolate(x, scale_factor=1. / scale, mode="bilinear", align_corners=False, recompute_scale_factor=False)
         flow = F.interpolate(flow, scale_factor=1. / scale, mode="bilinear", align_corners=False, recompute_scale_factor=False) * 1. / scale
         flow = torch.cat((x, flow), dim=1)
         feat = self.conv0(flow)
@@ -67,10 +68,9 @@ class IFNet(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.block0 = IFBlock(7 + 4, c=90)
+        self.block0 = IFBlock(7 + 4, c=240)
         self.block1 = IFBlock(7 + 4, c=90)
         self.block2 = IFBlock(7 + 4, c=90)
-        self.block_tea = IFBlock(10 + 4, c=90)
 
     def warp(self, input_tensor, flow):
         key = flow.shape
