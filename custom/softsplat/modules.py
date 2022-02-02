@@ -14,7 +14,7 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -22,7 +22,7 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
         self.layer2 = nn.Sequential(
             nn.Conv2d(
@@ -32,7 +32,7 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -40,7 +40,7 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
         self.layer3 = nn.Sequential(
             nn.Conv2d(
@@ -50,7 +50,7 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -58,7 +58,7 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
 
     def forward(self, x):
@@ -73,7 +73,6 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.conv_relu = nn.Sequential(
-            nn.ReLU(inplace=False),
             nn.Conv2d(
                 in_channels=num_layers*32*2,
                 out_channels=num_layers*32,
@@ -81,7 +80,7 @@ class Decoder(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=num_layers*32,
                 out_channels=num_layers*32,
@@ -89,6 +88,7 @@ class Decoder(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.ReLU(),
         )
 
     def forward(self, x1, x2):
@@ -119,7 +119,7 @@ class MatricUNet(nn.Module):
             padding=1,
         )
         self.down_l1 = nn.Sequential(
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=32,
@@ -127,7 +127,7 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -135,9 +135,9 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.ReLU(),
         )
         self.down_l2 = nn.Sequential(
-            nn.ReLU(inplace=False),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
@@ -145,7 +145,7 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -153,9 +153,9 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.ReLU(),
         )
         self.down_l3 = nn.Sequential(
-            nn.ReLU(inplace=False),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=96,
@@ -163,7 +163,7 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -171,6 +171,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.ReLU(),
         )
         self.middle = nn.Sequential(
             nn.Conv2d(
@@ -180,7 +181,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -188,11 +189,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
         self.up_l3 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=64,
@@ -200,7 +201,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -208,11 +209,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
         self.up_l2 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=32,
@@ -220,7 +221,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -228,11 +229,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
         self.up_l1 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=16,
@@ -240,7 +241,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=16,
@@ -248,12 +249,12 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.ReLU(),
         )
         self.decoder3 = Decoder(3)
         self.decoder2 = Decoder(2)
         self.decoder1 = Decoder(1)
         self.out_seq = nn.Sequential(
-            nn.ReLU(inplace=False),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=1,
@@ -261,7 +262,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(inplace=False),
+            nn.ReLU(),
         )
 
     def forward(self, metric, img):

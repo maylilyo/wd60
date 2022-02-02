@@ -17,11 +17,11 @@ class Extractor(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.netOne = self.get_CNN(3, 16)
-        self.netTwo = self.get_CNN(16, 32)
-        self.netThr = self.get_CNN(32, 64)
-        self.netFou = self.get_CNN(64, 96)
-        self.netFiv = self.get_CNN(96, 128)
+        self.netOne = self.get_CNN(3, 8)
+        self.netTwo = self.get_CNN(8, 16)
+        self.netThr = self.get_CNN(16, 32)
+        self.netFou = self.get_CNN(32, 64)
+        self.netFiv = self.get_CNN(64, 128)
         self.netSix = self.get_CNN(128, 196)
 
     def get_CNN(self, in_channels, out_channels):
@@ -33,10 +33,7 @@ class Extractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(
-                inplace=False,
-                negative_slope=0.1,
-            ),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=out_channels,
                 out_channels=out_channels,
@@ -44,10 +41,7 @@ class Extractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.LeakyReLU(
-                inplace=False,
-                negative_slope=0.1,
-            ),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=out_channels,
                 out_channels=out_channels,
@@ -55,10 +49,7 @@ class Extractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.LeakyReLU(
-                inplace=False,
-                negative_slope=0.1,
-            )
+            nn.ReLU()
         )
 
     def forward(self, input):
@@ -110,14 +101,12 @@ class Decoder(nn.Module):
         self.netThr = self.get_CNN(intCurrent + 128 + 128, 96)
         self.netFou = self.get_CNN(intCurrent + 128 + 128 + 96, 64)
         self.netFiv = self.get_CNN(intCurrent + 128 + 128 + 96 + 64, 32)
-        self.netSix = nn.Sequential(
-            nn.Conv2d(
-                in_channels=intCurrent + 128 + 128 + 96 + 64 + 32,
-                out_channels=2,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            )
+        self.netSix = nn.Conv2d(
+            in_channels=intCurrent + 128 + 128 + 96 + 64 + 32,
+            out_channels=2,
+            kernel_size=3,
+            stride=1,
+            padding=1,
         )
 
     def get_CNN(self, in_channels, out_channels):
@@ -129,10 +118,7 @@ class Decoder(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.LeakyReLU(
-                inplace=False,
-                negative_slope=0.1,
-            )
+            nn.ReLU()
         )
 
     def backwarp(self, input, flow):
@@ -156,8 +142,7 @@ class Decoder(nn.Module):
                 steps=flow.shape[2],
             )
             vertical = vertical.view(1, 1, -1, 1)
-            vertical = vertical.expand(
-                -1, -1, -1, flow.shape[3])
+            vertical = vertical.expand(-1, -1, -1, flow.shape[3])
 
             backwarped = torch.cat(
                 tensors=[horizontal, vertical],
@@ -165,7 +150,8 @@ class Decoder(nn.Module):
             )
             backwarped = backwarped.type_as(flow)
 
-        partial = flow.new_ones([flow.shape[0], 1, flow.shape[2], flow.shape[3]])
+        partial = flow.new_ones(
+            [flow.shape[0], 1, flow.shape[2], flow.shape[3]])
         partial = partial.type_as(flow)
 
         flow = torch.cat(
@@ -198,26 +184,12 @@ class Decoder(nn.Module):
         return output[:, :-1, :, :] * mask
 
     def forward(self, first, second, prev_object):
-        flow = None
-        feature = None
-
         if prev_object is None:
-            flow = None
-            feature = None
-
             input = correlation(
                 first=first,
                 second=second,
             )
-            volume = F.leaky_relu(
-                input=input,
-                negative_slope=0.1,
-                inplace=False,
-            )
-            feature = torch.cat(
-                tensors=[volume],
-                dim=1,
-            )
+            feature = F.relu(input)
         else:
             flow = self.netUpflow(prev_object['flow'])
             feature = self.netUpfeat(prev_object['feature'])
@@ -230,11 +202,7 @@ class Decoder(nn.Module):
                 first=first,
                 second=second,
             )
-            volume = F.leaky_relu(
-                input=input,
-                negative_slope=0.1,
-                inplace=False,
-            )
+            volume = F.relu(input)
             feature = torch.cat(
                 tensors=[volume, first, flow, feature],
                 dim=1,
@@ -255,10 +223,10 @@ class Decoder(nn.Module):
 
 
 class Refiner(nn.Module):
-    def __init__(self, in_ch):
+    def __init__(self, in_channels):
         super().__init__()
         self.conv_1 = nn.Conv2d(
-            in_channels=in_ch,
+            in_channels=in_channels,
             out_channels=128,
             kernel_size=3,
             stride=1,
@@ -312,24 +280,21 @@ class Refiner(nn.Module):
             padding=1,
             dilation=1,
         )
-        self.leaky_relu = nn.LeakyReLU(
-            inplace=False,
-            negative_slope=0.1,
-        )
+        self.relu = nn.ReLU()
 
     def forward(self, input):
         out = self.conv_1(input)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_2(out)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_3(out)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_4(out)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_5(out)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_6(out)
-        out = self.leaky_relu(out)
+        out = self.relu(out)
         out = self.conv_7(out)
         return out
 
@@ -338,11 +303,11 @@ class PWCNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.netExtractor = Extractor()
-        self.netTwo = Decoder(2)
-        self.netThr = Decoder(3)
-        self.netFou = Decoder(4)
-        self.netFiv = Decoder(5)
         self.netSix = Decoder(6)
+        self.netFiv = Decoder(5)
+        self.netFou = Decoder(4)
+        self.netThr = Decoder(3)
+        self.netTwo = Decoder(2)
         self.refiner = Refiner(565)
 
         # state_dict = torch.load(WEIGHT_DIR / 'pwc.pt')
