@@ -69,7 +69,7 @@ class GridNet(nn.Module):
                 setattr(self, f'lateral_{r}_{c}', LateralBlock(num_channel, num_channel))
 
         for r, (input_channel, output_channel) in enumerate(zip(self.num_channel_list[:-1], self.num_channel_list[1:])):
-            for c in range(int(self.num_column / 2)):
+            for c in range(self.num_column // 2):
                 # 00, 10일 때 예외처리
                 if r == 0 and c == 0:
                     setattr(self, f'down_{r}_{c}', LateralBlock(128, output_channel))
@@ -79,7 +79,7 @@ class GridNet(nn.Module):
                     setattr(self, f'down_{r}_{c}', DownSamplingBlock(input_channel, output_channel))
 
         for r, (input_channel, output_channel) in enumerate(zip(self.num_channel_list[1:], self.num_channel_list[:-1])):
-            for c in range(int(self.num_column / 2)):
+            for c in range(self.num_column // 2):
                 setattr(self, f'up_{r}_{c}', UpSamplingBlock(input_channel, output_channel))
 
         self.lateral_final = LateralBlock(self.num_channel_list[0], num_out_channel)
