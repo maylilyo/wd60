@@ -101,7 +101,22 @@ class CustomModule(pl.LightningModule):
             'lr_scheduler': self.lr_scheduler,
         }
 
-    def common_step(self, batch, state):
+    def training_step(self, batch, batch_idx):
+        img1, img2, y = batch
+        # img1: (batch_size, channel, width, height)
+        # img2: (batch_size, channel, width, height)
+        # y: (batch_size, channel, width, height)
+
+        y_hat = self(img1, img2)
+        # y_hat: (batch_size, channel, width, height)
+
+        loss = self.criterion(y_hat, y)
+        loss /= len(y)
+
+        self.log('train_loss', loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
         img1, img2, y = batch
         # img1: (batch_size, channel, width, height)
         # img2: (batch_size, channel, width, height)
@@ -114,29 +129,27 @@ class CustomModule(pl.LightningModule):
         loss /= len(y)
 
         metric = self.metric_function(y_hat, y)
-        lr = self.lr_scheduler.get_last_lr()[0]
-        self.log('lr', lr)
 
-        return loss, metric
-
-    def training_step(self, batch, batch_idx):
-
-        loss, metric = self.common_step(batch, state='train')
-
-        self.log('train_loss', loss)
-        self.log('train_ssim', metric)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-
-        loss, metric = self.common_step(batch, state='valid')
+        if self.lr_scheduler is not None:
+            lr = self.lr_scheduler.get_last_lr()[0]
+            self.log('lr', lr)
 
         self.log('val_loss', loss, sync_dist=True)
         self.log('val_ssim', metric, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
+        img1, img2, y = batch
+        # img1: (batch_size, channel, width, height)
+        # img2: (batch_size, channel, width, height)
+        # y: (batch_size, channel, width, height)
 
-        loss, metric = self.common_step(batch, state='test')
+        y_hat = self(img1, img2)
+        # y_hat: (batch_size, channel, width, height)
+
+        loss = self.criterion(y_hat, y)
+        loss /= len(y)
+
+        metric = self.metric_function(y_hat, y)
 
         self.log('test_loss', loss, sync_dist=True)
         self.log('test_ssim', metric, sync_dist=True)
