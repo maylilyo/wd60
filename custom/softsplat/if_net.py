@@ -8,33 +8,46 @@ class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
         super().__init__()
         self.conv0 = nn.Sequential(
+            nn.GroupNorm(c // 2 // 16, c // 2),
             self.conv(in_planes, c // 2, 3, 2, 1),
             self.conv(c // 2, c, 3, 2, 1),
         )
-        self.conv1 = nn.Sequential(
+        self.flow_conv = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
             nn.ReLU(),
+            nn.GroupNorm(c // 2 // 16, c // 2),
             nn.ConvTranspose2d(c // 2, 4, 4, 2, 1),
         )
-        self.conv2 = nn.Sequential(
+        self.mask_conv = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
             nn.ReLU(),
+            nn.GroupNorm(c // 2 // 16, c // 2),
             nn.ConvTranspose2d(c // 2, 1, 4, 2, 1),
         )
         self.convblock0 = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c),
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c)
         )
         self.convblock1 = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c),
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c)
         )
         self.convblock2 = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c),
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c)
         )
         self.convblock3 = nn.Sequential(
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c),
+            nn.GroupNorm(c // 16, c),
             self.conv(c, c)
         )
 
@@ -48,18 +61,23 @@ class IFBlock(nn.Module):
 
     def forward(self, x, flow, scale):
         if scale > 1:
-            x = F.interpolate(x, scale_factor=1. / scale, mode="bilinear", align_corners=False, recompute_scale_factor=False)
-        flow = F.interpolate(flow, scale_factor=1. / scale, mode="bilinear", align_corners=False, recompute_scale_factor=False) * 1. / scale
-        flow = torch.cat((x, flow), dim=1)
+            x = F.interpolate(x, scale_factor=1. / scale, mode="bilinear",
+                              align_corners=False, recompute_scale_factor=False)
+        flow = F.interpolate(flow, scale_factor=1. / scale, mode="bilinear",
+                             align_corners=False, recompute_scale_factor=False) / scale
+        flow = torch.cat((x, flow), 1)
         feat = self.conv0(flow)
         feat = self.convblock0(feat) + feat
         feat = self.convblock1(feat) + feat
         feat = self.convblock2(feat) + feat
         feat = self.convblock3(feat) + feat
-        flow = self.conv1(feat)
-        mask = self.conv2(feat)
-        flow = F.interpolate(flow, scale_factor=scale, mode="bilinear", align_corners=False, recompute_scale_factor=False) * scale
-        mask = F.interpolate(mask, scale_factor=scale, mode="bilinear", align_corners=False, recompute_scale_factor=False)
+        flow = self.flow_conv(feat)
+        mask = self.mask_conv(feat)
+        flow = F.interpolate(flow, scale_factor=scale, mode="bilinear",
+                             align_corners=False, recompute_scale_factor=False) * scale
+        mask = F.interpolate(mask, scale_factor=scale, mode="bilinear",
+                             align_corners=False, recompute_scale_factor=False)
+
         return flow, mask
 
 
@@ -68,9 +86,9 @@ class IFNet(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.block0 = IFBlock(7 + 4, c=240)
-        self.block1 = IFBlock(7 + 4, c=90)
-        self.block2 = IFBlock(7 + 4, c=90)
+        self.block0 = IFBlock(3 + 3 + 1 + 4, c=128)
+        self.block1 = IFBlock(3 + 3 + 1 + 4, c=64)
+        self.block2 = IFBlock(3 + 3 + 1 + 4, c=32)
 
     def warp(self, input_tensor, flow):
         key = flow.shape
@@ -79,11 +97,12 @@ class IFNet(nn.Module):
         else:
             horizontal = torch.linspace(-1.0, 1.0, flow.shape[3])
             horizontal = horizontal.view(1, 1, 1, flow.shape[3])
-            horizontal = horizontal.expand(flow.shape[0], -1, flow.shape[2], -1)
+            horizontal = horizontal.expand(
+                flow.shape[0], -1, flow.shape[2], -1)
             vertical = torch.linspace(-1.0, 1.0, flow.shape[2])
             vertical = vertical.view(1, 1, flow.shape[2], 1)
             vertical = vertical.expand(flow.shape[0], -1, -1, flow.shape[3])
-            grid = torch.cat([horizontal, vertical], dim=1)
+            grid = torch.cat([horizontal, vertical], 1)
 
             IFNet.grid_cache[key] = grid
         grid = grid.type_as(flow)
