@@ -27,7 +27,7 @@ class ContextExtractor(nn.Module):
             nn.ReLU(),
         )
         self.layer2 = nn.Sequential(
-            nn.GroupNorm(4, 64),
+            nn.GroupNorm(2, 32),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,

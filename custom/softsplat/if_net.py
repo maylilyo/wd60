@@ -8,7 +8,7 @@ class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
         super().__init__()
         self.conv0 = nn.Sequential(
-            nn.GroupNorm(c // 2 // 16, c // 2),
+            nn.GroupNorm(in_planes, in_planes),
             self.conv(in_planes, c // 2, 3, 2, 1),
             self.conv(c // 2, c, 3, 2, 1),
         )
