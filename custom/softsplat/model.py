@@ -23,8 +23,7 @@ class SoftSplat(nn.Module):
 
         self.feature_extractor_1 = ContextExtractor()
         self.feature_extractor_2 = ContextExtractor()
-        self.beta1 = nn.Parameter(torch.Tensor([-1]))
-        self.beta2 = nn.Parameter(torch.Tensor([-1]))
+        self.alpha = nn.Parameter(-torch.ones(1))
         self.matric_unet = MatricUNet()
         self.grid_net = GridNet()
 
@@ -200,22 +199,22 @@ class SoftSplat(nn.Module):
         warped_img1 = softmax_splatting(
             input=img1,
             flow=flow_1to2_pyramid[0],
-            metric=self.beta1 * tenMetric_ls_1to2[0],
+            metric=self.alpha * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_1 = softmax_splatting(
             input=feature_pyramid1[0],
             flow=flow_1to2_pyramid[0],
-            metric=self.beta1 * tenMetric_ls_1to2[0],
+            metric=self.alpha * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_2 = softmax_splatting(
             input=feature_pyramid1[1],
             flow=flow_1to2_pyramid[1],
-            metric=self.beta1 * tenMetric_ls_1to2[1],
+            metric=self.alpha * tenMetric_ls_1to2[1],
         )
         warped_pyramid1_3 = softmax_splatting(
             input=feature_pyramid1[2],
             flow=flow_1to2_pyramid[2],
-            metric=self.beta1 * tenMetric_ls_1to2[2],
+            metric=self.alpha * tenMetric_ls_1to2[2],
         )
         # warped_img1: (num_batches, 3, height, width)
         # warped_pyramid1_1: (num_batches, 32, height, width)
@@ -234,22 +233,22 @@ class SoftSplat(nn.Module):
         warped_img2 = softmax_splatting(
             input=img2,
             flow=flow_2to1_pyramid[0],
-            metric=self.beta2 * tenMetric_ls_2to1[0],
+            metric=self.alpha * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_1 = softmax_splatting(
             input=feature_pyramid2[0],
             flow=flow_2to1_pyramid[0],
-            metric=self.beta2 * tenMetric_ls_2to1[0],
+            metric=self.alpha * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_2 = softmax_splatting(
             input=feature_pyramid2[1],
             flow=flow_2to1_pyramid[1],
-            metric=self.beta2 * tenMetric_ls_2to1[1],
+            metric=self.alpha * tenMetric_ls_2to1[1],
         )
         warped_pyramid2_3 = softmax_splatting(
             input=feature_pyramid2[2],
             flow=flow_2to1_pyramid[2],
-            metric=self.beta2 * tenMetric_ls_2to1[2],
+            metric=self.alpha * tenMetric_ls_2to1[2],
         )
         # warped_img2: (num_batches, 3, height, width)
         # warped_pyramid2_1: (num_batches, 32, height, width)
