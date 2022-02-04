@@ -8,47 +8,46 @@ class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
         super().__init__()
         self.conv0 = nn.Sequential(
-            nn.GroupNorm(in_planes, in_planes),
             self.conv(in_planes, c // 2, 3, 2, 1),
             self.conv(c // 2, c, 3, 2, 1),
         )
         self.flow_conv = nn.Sequential(
-            nn.GroupNorm(c // 16, c),
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
+            nn.GroupNorm(c // 16 // 2, c // 2),
             nn.ReLU(),
-            nn.GroupNorm(c // 2 // 16, c // 2),
             nn.ConvTranspose2d(c // 2, 4, 4, 2, 1),
+            nn.GroupNorm(1, 4),
         )
         self.mask_conv = nn.Sequential(
-            nn.GroupNorm(c // 16, c),
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1),
+            nn.GroupNorm(c // 16 // 2, c // 2),
             nn.ReLU(),
-            nn.GroupNorm(c // 2 // 16, c // 2),
             nn.ConvTranspose2d(c // 2, 1, 4, 2, 1),
+            nn.GroupNorm(1, 1),
         )
         self.convblock0 = nn.Sequential(
+            self.conv(c, c),
             nn.GroupNorm(c // 16, c),
             self.conv(c, c),
             nn.GroupNorm(c // 16, c),
-            self.conv(c, c)
         )
         self.convblock1 = nn.Sequential(
+            self.conv(c, c),
             nn.GroupNorm(c // 16, c),
             self.conv(c, c),
             nn.GroupNorm(c // 16, c),
-            self.conv(c, c)
         )
         self.convblock2 = nn.Sequential(
+            self.conv(c, c),
             nn.GroupNorm(c // 16, c),
             self.conv(c, c),
             nn.GroupNorm(c // 16, c),
-            self.conv(c, c)
         )
         self.convblock3 = nn.Sequential(
+            self.conv(c, c),
             nn.GroupNorm(c // 16, c),
             self.conv(c, c),
             nn.GroupNorm(c // 16, c),
-            self.conv(c, c)
         )
 
     @staticmethod
@@ -56,6 +55,7 @@ class IFBlock(nn.Module):
         return nn.Sequential(
             nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
                       padding=padding, dilation=dilation, bias=True),
+            nn.GroupNorm(out_planes // 16, out_planes),
             nn.ReLU(),
         )
 
@@ -87,8 +87,8 @@ class IFNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.block0 = IFBlock(3 + 3 + 1 + 4, c=128)
-        self.block1 = IFBlock(3 + 3 + 1 + 4, c=64)
-        self.block2 = IFBlock(3 + 3 + 1 + 4, c=32)
+        self.block1 = IFBlock(3 + 3 + 1 + 4, c=128)
+        self.block2 = IFBlock(3 + 3 + 1 + 4, c=128)
 
     def warp(self, input_tensor, flow):
         key = flow.shape

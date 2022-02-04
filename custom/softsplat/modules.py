@@ -7,7 +7,6 @@ class ContextExtractor(nn.Module):
     def __init__(self):
         super().__init__()
         self.layer1 = nn.Sequential(
-            nn.GroupNorm(3, 3),
             nn.Conv2d(
                 in_channels=3,
                 out_channels=32,
@@ -15,8 +14,8 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(2, 32),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -24,10 +23,10 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(2, 32),
             nn.ReLU(),
         )
         self.layer2 = nn.Sequential(
-            nn.GroupNorm(2, 32),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
@@ -35,8 +34,8 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(4, 64),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -44,10 +43,10 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(4, 64),
             nn.ReLU(),
         )
         self.layer3 = nn.Sequential(
-            nn.GroupNorm(4, 64),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=96,
@@ -55,8 +54,8 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(6, 96),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -64,6 +63,7 @@ class ContextExtractor(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(6, 96),
             nn.ReLU(),
         )
 
@@ -79,7 +79,6 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.conv_relu = nn.Sequential(
-            nn.GroupNorm(num_layers*2*2, num_layers*32*2),
             nn.Conv2d(
                 in_channels=num_layers*32*2,
                 out_channels=num_layers*32,
@@ -87,8 +86,8 @@ class Decoder(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(num_layers*2, num_layers*32),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=num_layers*32,
                 out_channels=num_layers*32,
@@ -96,6 +95,7 @@ class Decoder(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(num_layers*2, num_layers*32),
             nn.ReLU(),
         )
 
@@ -111,7 +111,6 @@ class MatricUNet(nn.Module):
 
         # conv_img: Color를 유지하면서 3 channels를 12 channels로 변경
         self.conv_img = nn.Sequential(
-            nn.GroupNorm(3, 3),
             nn.Conv2d(
                 in_channels=3,
                 out_channels=12,
@@ -119,6 +118,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(3, 12),
             nn.ReLU(),
         )
         # conv_metric: 양쪽 사진의 loss를 1 channel에서 4 channels로 바꿈
@@ -132,10 +132,10 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(1, 4),
             nn.ReLU(),
         )
         self.down_l1 = nn.Sequential(
-            nn.GroupNorm(1, 16),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=32,
@@ -143,8 +143,8 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(2, 32),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -152,10 +152,10 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(2, 32),
             nn.ReLU(),
         )
         self.down_l2 = nn.Sequential(
-            nn.GroupNorm(2, 32),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
@@ -163,8 +163,8 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(4, 64),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -172,10 +172,10 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(4, 64),
             nn.ReLU(),
         )
         self.down_l3 = nn.Sequential(
-            nn.GroupNorm(4, 64),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=96,
@@ -183,8 +183,8 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(6, 96),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -192,10 +192,10 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(6, 96),
             nn.ReLU(),
         )
         self.middle = nn.Sequential(
-            nn.GroupNorm(6, 96),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -203,8 +203,8 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(6, 96),
             nn.ReLU(),
-            nn.GroupNorm(6, 96),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -212,11 +212,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(6, 96),
             nn.ReLU(),
         )
         self.up_l3 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.GroupNorm(6, 96),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=64,
@@ -224,8 +224,8 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(4, 64),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -233,11 +233,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(4, 64),
             nn.ReLU(),
         )
         self.up_l2 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.GroupNorm(4, 64),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=32,
@@ -245,8 +245,8 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(2, 32),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -254,11 +254,11 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(2, 32),
             nn.ReLU(),
         )
         self.up_l1 = nn.Sequential(
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.GroupNorm(2, 32),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=16,
@@ -266,8 +266,8 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
-            nn.ReLU(),
             nn.GroupNorm(1, 16),
+            nn.ReLU(),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=16,
@@ -275,13 +275,13 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(1, 16),
             nn.ReLU(),
         )
         self.decoder3 = Decoder(3)
         self.decoder2 = Decoder(2)
         self.decoder1 = Decoder(1)
         self.out_seq = nn.Sequential(
-            nn.GroupNorm(1, 16),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=1,
@@ -289,6 +289,7 @@ class MatricUNet(nn.Module):
                 stride=1,
                 padding=1,
             ),
+            nn.GroupNorm(1, 1),
             nn.ReLU(),
         )
 
