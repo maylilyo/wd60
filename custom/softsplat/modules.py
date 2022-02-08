@@ -239,7 +239,7 @@ class MatricUNet(nn.Module):
             nn.ReLU(),
         )
         self.up_l3 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear"),
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=64,
@@ -262,7 +262,7 @@ class MatricUNet(nn.Module):
             nn.ReLU(),
         )
         self.up_l2 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear"),
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=32,
@@ -286,7 +286,7 @@ class MatricUNet(nn.Module):
         )
         # TODO UpsamplingBilinear2d -> interpolate
         self.up_l1 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear"),
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=16,

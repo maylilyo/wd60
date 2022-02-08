@@ -83,7 +83,7 @@ class UpSamplingBlock(nn.Module):
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.f = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear"),
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(
                 ch_in,
                 ch_out,
