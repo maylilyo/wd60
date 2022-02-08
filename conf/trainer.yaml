@@ -2,9 +2,9 @@ trainer:
   callbacks:
     checkpoint: true
     early_stop: true
-  gpus: 4
+  gpus: ???
   progress_bar: true
-  max_epochs: 3
-  strategy: dp  # null, dp, ddp, deepspeed_stage_3, ...
-  precision: 32  # 16, 32, 64
+  max_epochs: ???
+  strategy: ???  # null, dp, ddp, deepspeed_stage_3, ...
+  precision: 16  # 16, 32, 64
   deterministic: false
