@@ -3,20 +3,46 @@ import torch.nn as nn
 
 
 class LateralBlock(nn.Module):
-    def __init__(self, ch_in, ch_out):
+    def __init__(self, ch_in, ch_out, is_last=False):
         super().__init__()
+        self.is_last = is_last
+        self.is_diff_ch = ch_in != ch_out
+
         self.f = nn.Sequential(
+            nn.Conv2d(
+                ch_in,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, padding=1),
+            nn.Conv2d(
+                ch_out,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
-        if ch_in != ch_out:
-            self.conv = nn.Conv2d(ch_in, ch_out, kernel_size=3, padding=1)
+        if self.is_diff_ch:
+            self.conv = nn.Conv2d(
+                ch_in,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            )
 
     def forward(self, x):
         fx = self.f(x)
-        if fx.shape[1] != x.shape[1]:
+        if self.is_diff_ch:
             x = self.conv(x)
 
         return fx + x
@@ -26,10 +52,27 @@ class DownSamplingBlock(nn.Module):
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.f = nn.Sequential(
+            nn.Conv2d(
+                ch_in,
+                ch_out,
+                kernel_size=3,
+                stride=2,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(
+                ch_out,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
 
     def forward(self, x):
@@ -40,11 +83,27 @@ class UpSamplingBlock(nn.Module):
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.f = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.Upsample(scale_factor=2, mode="bilinear"),
+            nn.Conv2d(
+                ch_in,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_in, ch_out, kernel_size=3, padding=1),
+            nn.Conv2d(
+                ch_out,
+                ch_out,
+                kernel_size=3,
+                padding=2,
+                dilation=2,
+                bias=False,
+            ),
+            # nn.GroupNorm(ch_out // 2, ch_out),
             nn.ReLU(),
-            nn.Conv2d(ch_out, ch_out, kernel_size=3, padding=1)
         )
 
     def forward(self, x):
@@ -60,27 +119,41 @@ class GridNet(nn.Module):
         self.num_column = 6
         self.num_channel_list = grid_channel_list
 
-        assert len(grid_channel_list) == self.num_row, 'should give num channels for each row (scale stream)'
+        assert (
+            len(grid_channel_list) == self.num_row
+        ), "should give num channels for each row (scale stream)"
 
         self.lateral_init = LateralBlock(70, self.num_channel_list[0])
 
         for r, num_channel in enumerate(self.num_channel_list):
             for c in range(self.num_column - 1):
-                setattr(self, f'lateral_{r}_{c}', LateralBlock(num_channel, num_channel))
+                setattr(
+                    self, f"lateral_{r}_{c}", LateralBlock(num_channel, num_channel)
+                )
 
-        for r, (input_channel, output_channel) in enumerate(zip(self.num_channel_list[:-1], self.num_channel_list[1:])):
+        for r, (input_channel, output_channel) in enumerate(
+            zip(self.num_channel_list[:-1], self.num_channel_list[1:])
+        ):
             for c in range(self.num_column // 2):
                 # 00, 10일 때 예외처리
                 if r == 0 and c == 0:
-                    setattr(self, f'down_{r}_{c}', LateralBlock(128, output_channel))
+                    setattr(self, f"down_{r}_{c}", LateralBlock(128, output_channel))
                 elif r == 1 and c == 0:
-                    setattr(self, f'down_{r}_{c}', LateralBlock(192, output_channel))
+                    setattr(self, f"down_{r}_{c}", LateralBlock(192, output_channel))
                 else:
-                    setattr(self, f'down_{r}_{c}', DownSamplingBlock(input_channel, output_channel))
+                    setattr(
+                        self,
+                        f"down_{r}_{c}",
+                        DownSamplingBlock(input_channel, output_channel),
+                    )
 
-        for r, (input_channel, output_channel) in enumerate(zip(self.num_channel_list[1:], self.num_channel_list[:-1])):
+        for r, (input_channel, output_channel) in enumerate(
+            zip(self.num_channel_list[1:], self.num_channel_list[:-1])
+        ):
             for c in range(self.num_column // 2):
-                setattr(self, f'up_{r}_{c}', UpSamplingBlock(input_channel, output_channel))
+                setattr(
+                    self, f"up_{r}_{c}", UpSamplingBlock(input_channel, output_channel)
+                )
 
         self.lateral_final = LateralBlock(self.num_channel_list[0], num_out_channel)
 
