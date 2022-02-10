@@ -10,4 +10,4 @@ ray[tune]
 
 # --- Project ---
 cupy-cuda113
-imageio
+opencv-python
