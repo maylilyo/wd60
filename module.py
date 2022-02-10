@@ -124,7 +124,7 @@ class CustomModule(pl.LightningModule):
         return loss
 
     def training_step_end(self, batch_parts):
-        # losses from each GPU
+        # losses from each GPU on DP strategy
         return batch_parts.mean()
 
     def validation_step(self, batch, batch_idx):
@@ -160,3 +160,6 @@ class CustomModule(pl.LightningModule):
 
         self.log("test_loss", loss, sync_dist=True)
         self.log("test_psnr", metric, sync_dist=True)
+
+    def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
+        optimizer.zero_grad(set_to_none=True)
