@@ -18,8 +18,8 @@ class CustomDataModule(LightningDataModule):
         self.data_dir = work_dir / cfg.data_module.data_dir
 
     def setup(self, stage):
-        self.train_dataset = Vimeo(data_dir=self.data_dir, state='train')  # length: 51313
-        self.test_dataset = Vimeo(data_dir=self.data_dir, state='test')  # length: 3783
+        self.train_dataset = Vimeo(data_dir=self.data_dir, state="train", is_pt=True)
+        self.test_dataset = Vimeo(data_dir=self.data_dir, state="test", is_pt=True)
 
     def train_dataloader(self):
         return DataLoader(
@@ -27,6 +27,7 @@ class CustomDataModule(LightningDataModule):
             batch_size=self.cfg.data_module.batch_size,
             shuffle=True,
             num_workers=self.cfg.data_module.num_workers,
+            pin_memory=True,
         )
 
     def val_dataloader(self):
@@ -35,6 +36,7 @@ class CustomDataModule(LightningDataModule):
             batch_size=self.cfg.data_module.batch_size,
             shuffle=False,
             num_workers=self.cfg.data_module.num_workers,
+            pin_memory=True,
         )
 
     def test_dataloader(self):
@@ -43,4 +45,5 @@ class CustomDataModule(LightningDataModule):
             batch_size=self.cfg.data_module.batch_size,
             shuffle=False,
             num_workers=self.cfg.data_module.num_workers,
+            pin_memory=True,
         )
