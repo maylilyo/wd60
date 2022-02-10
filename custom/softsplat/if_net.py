@@ -33,14 +33,6 @@ class IFBlock(nn.Module):
             self.conv(c, c, 3, 2, 2),
             self.conv(c, c, 3, 2, 2),
         )
-        self.convblock3 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
-        )
-        self.convblock4 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
-        )
         self.flow_conv = nn.Sequential(
             nn.ConvTranspose2d(c, c // 2, 1, bias=False),
             # nn.GroupNorm(c // 16, c // 2),
@@ -114,8 +106,6 @@ class IFBlock(nn.Module):
         feature = self.convblock0(feature) + feature
         feature = self.convblock1(feature) + feature
         feature = self.convblock2(feature) + feature
-        feature = self.convblock3(feature) + feature
-        feature = self.convblock4(feature) + feature
 
         flow = self.flow_conv(feature)
         mask = self.mask_conv(feature)
@@ -148,7 +138,6 @@ class IFNet(nn.Module):
         self.block0 = IFBlock(3 + 3 + 1 + 4, c=128)
         self.block1 = IFBlock(3 + 3 + 1 + 4, c=128)
         self.block2 = IFBlock(3 + 3 + 1 + 4, c=128)
-        self.block3 = IFBlock(3 + 3 + 1 + 4, c=128)
 
     def warp(self, input_tensor, flow):
         key = flow.shape
@@ -184,7 +173,7 @@ class IFNet(nn.Module):
         )
         return grid
 
-    def forward(self, img1, img2, scale_list=[8, 4, 2, 1]):
+    def forward(self, img1, img2, scale_list=[4, 2, 1]):
         # img1, img2: (num_batches, 3, height, width)
         warped_img1 = img1
         warped_img2 = img2
@@ -196,7 +185,7 @@ class IFNet(nn.Module):
         # flow: (num_batches, 4, height, width)
         # mask: (num_batches, 1, height, width)
 
-        block = [self.block0, self.block1, self.block2, self.block3]
+        block = [self.block0, self.block1, self.block2]
 
         for i in range(len(block)):
             flow0, mask0 = block[i](
