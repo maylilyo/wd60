@@ -8,9 +8,10 @@ defaults:
   - callbacks:
     - checkpoint
     - early_stop
+    - swa
   - model: base
-  - optimizer: adamw
-  - lr_scheduler: one_cycle_lr
+  - optimizer: adam
+  - lr_scheduler: none
 
 # Override
 common:
@@ -18,11 +19,11 @@ common:
 
 trainer:
   gpus: 4
-  max_epochs: 20
+  max_epochs: 15
   strategy: dp
   
 data_module:
   batch_size: 16
 
 optimizer:
-  lr: 0.0005
+  lr: 1e-4
