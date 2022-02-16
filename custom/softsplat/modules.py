@@ -16,7 +16,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -26,7 +26,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.layer2 = nn.Sequential(
             nn.Conv2d(
@@ -39,7 +39,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -49,7 +49,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.layer3 = nn.Sequential(
             nn.Conv2d(
@@ -62,7 +62,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -72,7 +72,7 @@ class ContextExtractor(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
 
     def forward(self, x):
@@ -96,7 +96,7 @@ class Decoder(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(num_layers * 2, num_layers * 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=num_layers * 32,
                 out_channels=num_layers * 32,
@@ -106,7 +106,7 @@ class Decoder(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(num_layers * 2, num_layers * 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
 
     def forward(self, x1, x2):
@@ -130,7 +130,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(3, 12),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         # conv_metric: 양쪽 사진의 loss를 1 channel에서 4 channels로 바꿈
         # 동시에 background의 중요도를 계산
@@ -145,7 +145,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(1, 4),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.down_l1 = nn.Sequential(
             nn.Conv2d(
@@ -158,7 +158,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -168,7 +168,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.down_l2 = nn.Sequential(
             nn.Conv2d(
@@ -181,7 +181,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -191,7 +191,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.down_l3 = nn.Sequential(
             nn.Conv2d(
@@ -204,7 +204,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -214,7 +214,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.middle = nn.Sequential(
             nn.Conv2d(
@@ -226,7 +226,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
@@ -236,7 +236,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(6, 96),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.up_l3 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
@@ -249,7 +249,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
@@ -259,7 +259,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(4, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.up_l2 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
@@ -272,7 +272,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
@@ -282,7 +282,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(2, 32),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         # TODO UpsamplingBilinear2d -> interpolate
         self.up_l1 = nn.Sequential(
@@ -296,7 +296,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(1, 16),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=16,
@@ -306,7 +306,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(1, 16),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
         self.decoder3 = Decoder(3)
         self.decoder2 = Decoder(2)
@@ -321,7 +321,7 @@ class MatricUNet(nn.Module):
                 bias=False,
             ),
             # nn.GroupNorm(1, 1),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
         )
 
     def forward(self, metric, img):

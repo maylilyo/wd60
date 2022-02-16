@@ -21,17 +21,17 @@ class SoftSplat(nn.Module):
         self.height = model_option.height
         self.width = model_option.width
 
-        self.feature_extractor_1 = ContextExtractor()
-        self.feature_extractor_2 = ContextExtractor()
+        self.feature_extractor = ContextExtractor()
         self.alpha = nn.Parameter(-torch.ones(1))
         self.matric_unet = MatricUNet()
         self.grid_net = GridNet()
+        self.l1_loss = nn.L1Loss(reduction="none")
 
-        if self.flow_net_name == 'pwcnet':
+        if self.flow_net_name == "pwcnet":
             self.flow_extractor = PWCNet()
-        elif self.flow_net_name == 'pwcdcnet':
+        elif self.flow_net_name == "pwcdcnet":
             self.flow_extractor = PWCDCNet()
-        elif self.flow_net_name == 'ifnet':
+        elif self.flow_net_name == "ifnet":
             self.flow_extractor = IFNet()
 
     def backwarp(self, input_tensor, flow):
@@ -61,7 +61,7 @@ class SoftSplat(nn.Module):
         flow = torch.cat(
             tensors=[
                 flow[:, 0:1, :, :] / ((input_tensor.shape[3] - 1.0) / 2.0),
-                flow[:, 1:2, :, :] / ((input_tensor.shape[2] - 1.0) / 2.0)
+                flow[:, 1:2, :, :] / ((input_tensor.shape[2] - 1.0) / 2.0),
             ],
             dim=1,
         )
@@ -72,9 +72,9 @@ class SoftSplat(nn.Module):
         return F.grid_sample(
             input=input_tensor,
             grid=grid,
-            mode='bilinear',
-            padding_mode='zeros',
-            align_corners=False,
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=True,
         )
 
     def scale_flow_zero(self, flow):
@@ -83,54 +83,53 @@ class SoftSplat(nn.Module):
         raw_scaled = (SCALE / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
         return raw_scaled
 
     def scale_flow(self, flow):
         # https://github.com/sniklaus/softmax-splatting/issues/12
 
-        if self.flow_net_name in ['pwcnet', 'pwcdcnet']:
+        if self.flow_net_name in ["pwcnet", "pwcdcnet"]:
             SCALE = 20.0
-        elif self.flow_net_name == 'ifnet':
+        elif self.flow_net_name == "ifnet":
             SCALE = 1.0
 
         raw_scaled = (SCALE / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
         half_scaled = (SCALE / 2) * F.interpolate(
             input=flow,
             size=(self.height // 2, self.width // 2),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
         quarter_scaled = (SCALE / 4) * F.interpolate(
             input=flow,
             size=(self.height // 4, self.width // 4),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
 
         return [raw_scaled, half_scaled, quarter_scaled]
 
     def scale_tenMetric(self, tenMetric):
-
         raw_scaled = tenMetric
         half_scaled = F.interpolate(
             input=tenMetric,
             size=(self.height // 2, self.width // 2),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
         quarter_scaled = F.interpolate(
             input=tenMetric,
             size=(self.height // 4, self.width // 4),
-            mode='bilinear',
-            align_corners=False,
+            mode="bilinear",
+            align_corners=True,
         )
         return [raw_scaled, half_scaled, quarter_scaled]
 
@@ -138,8 +137,8 @@ class SoftSplat(nn.Module):
         # img1, img2: (num_batches, 3, height, width)
 
         # ↓ Optional Information Provider
-        feature_pyramid1 = self.feature_extractor_1(img1)
-        feature_pyramid2 = self.feature_extractor_2(img2)
+        feature_pyramid1 = self.feature_extractor(img1)
+        feature_pyramid2 = self.feature_extractor(img2)
 
         # feature_pyramid1, feature_pyramid2: [layer1, layer2, layer3]
         # layer1: (num_batches, 32, height, width)
@@ -147,7 +146,7 @@ class SoftSplat(nn.Module):
         # layer3: (num_batches, 96, height / 4, width / 4)
 
         # ↓ Optical Flow Estimator
-        if self.flow_net_name in ['pwcnet', 'pwcdcnet']:
+        if self.flow_net_name in ["pwcnet", "pwcdcnet"]:
             flow_1to2 = self.flow_extractor(img1, img2)
             flow_2to1 = self.flow_extractor(img2, img1)
             # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
@@ -158,12 +157,13 @@ class SoftSplat(nn.Module):
             flow_1tot = flow_1to2 * 0.5
             flow_2tot = flow_2to1 * 0.5
 
-        elif self.flow_net_name == 'ifnet':
-            flow_all = self.flow_extractor(img1, img2)
-            flow_1tot = flow_all[:, :2]
-            flow_1to2_zero = flow_1tot
-            flow_2tot = flow_all[:, 2:]
-            flow_2to1_zero = flow_2tot
+        elif self.flow_net_name == "ifnet":
+            flow_1to2, flow_2to1 = self.flow_extractor(img1, img2)
+            flow_1to2_zero = flow_1to2
+            flow_2to1_zero = flow_2to1
+
+            flow_1tot = flow_1to2 * 0.5
+            flow_2tot = flow_2to1 * 0.5
 
         flow_1to2_pyramid = self.scale_flow(flow_1tot)
         flow_2to1_pyramid = self.scale_flow(flow_2tot)
@@ -177,11 +177,7 @@ class SoftSplat(nn.Module):
         # quarter_scaled: (num_batches, 2, height / 4, width / 4)
 
         # ↓ Softmax Splatting
-        tenMetric_1to2 = F.l1_loss(
-            input=img1,
-            target=target_1to2,
-            reduction='none',
-        )
+        tenMetric_1to2 = self.l1_loss(img1, target_1to2)
         # tenMetric_1to2: (num_batches, 3, height, width)
 
         tenMetric_1to2 = tenMetric_1to2.mean(1, True)
@@ -221,11 +217,7 @@ class SoftSplat(nn.Module):
         # warped_pyramid1_2: (num_batches, 64, height / 2, width / 2)
         # warped_pyramid1_3: (num_batches, 96, height / 4, width / 4)
 
-        tenMetric_2to1 = F.l1_loss(
-            input=img2,
-            target=target_2to1,
-            reduction='none',
-        )
+        tenMetric_2to1 = self.l1_loss(img2, target_2to1)
         tenMetric_2to1 = tenMetric_2to1.mean(1, True)
         tenMetric_2to1 = self.matric_unet(tenMetric_2to1, img2)
         tenMetric_ls_2to1 = self.scale_tenMetric(tenMetric_2to1)
