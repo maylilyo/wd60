@@ -59,22 +59,20 @@ class IFBlock(nn.Module):
                 x,
                 scale_factor=1.0 / scale,
                 mode="bilinear",
-                align_corners=False,
+                align_corners=True,
                 recompute_scale_factor=False,
             )
-            if flow is not None:
-                flow = (
-                    F.interpolate(
-                        flow,
-                        scale_factor=1.0 / scale,
-                        mode="bilinear",
-                        align_corners=False,
-                        recompute_scale_factor=False,
-                    )
-                    / scale
+            flow = (
+                F.interpolate(
+                    flow,
+                    scale_factor=1.0 / scale,
+                    mode="bilinear",
+                    align_corners=True,
+                    recompute_scale_factor=False,
                 )
-        if flow is not None:
-            x = torch.cat((x, flow), 1)
+                / scale
+            )
+        x = torch.cat((x, flow), 1)
 
         feature = self.conv0(x)
         feature = self.convblock0(feature) + feature
@@ -88,7 +86,7 @@ class IFBlock(nn.Module):
                 flow,
                 scale_factor=scale,
                 mode="bilinear",
-                align_corners=False,
+                align_corners=True,
                 recompute_scale_factor=False,
             )
             * scale
