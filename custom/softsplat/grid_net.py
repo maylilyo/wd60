@@ -3,9 +3,10 @@ import torch.nn as nn
 
 
 class LateralBlock(nn.Module):
-    def __init__(self, ch_in, ch_out):
+    def __init__(self, ch_in, ch_out, is_last=False):
         super().__init__()
         self.is_diff_ch = ch_in != ch_out
+        self.is_last = is_last
 
         self.conv_1 = nn.Conv2d(
             ch_in,
@@ -24,7 +25,7 @@ class LateralBlock(nn.Module):
             bias=False,
         )
         self.group_norm = (nn.GroupNorm(ch_out // 2, ch_out),)
-        self.prelu = nn.PReLU()
+        self.leaky_relu = nn.LeakyReLU(0.2)
 
         if self.is_diff_ch:
             self.conv = nn.Conv2d(
@@ -39,10 +40,11 @@ class LateralBlock(nn.Module):
     def forward(self, x):
         x1 = self.conv_1(x)
         # x1 = self.group_norm(x1)
-        x1 = self.prelu(x1)
+        x1 = self.leaky_relu(x1)
         x1 = self.conv_2(x1)
-        # x1 = self.group_norm(x1)
-        x1 = self.prelu(x1)
+        if not self.is_last:
+            # x1 = self.group_norm(x1)
+            x1 = self.leaky_relu(x1)
 
         if self.is_diff_ch:
             x = self.conv(x)
@@ -72,15 +74,15 @@ class DownSamplingBlock(nn.Module):
             bias=False,
         )
         self.group_norm = nn.GroupNorm(ch_out // 2, ch_out)
-        self.prelu = nn.PReLU()
+        self.leaky_relu = nn.LeakyReLU(0.2)
 
     def forward(self, x):
         x = self.conv_1(x)
         # x = self.group_norm(x)
-        x = self.prelu(x)
+        x = self.leaky_relu(x)
         x = self.conv_2(x)
         # x = self.group_norm(x)
-        x = self.prelu(x)
+        x = self.leaky_relu(x)
         return x
 
 
@@ -105,16 +107,16 @@ class UpSamplingBlock(nn.Module):
             bias=False,
         )
         self.group_norm = nn.GroupNorm(ch_out // 2, ch_out)
-        self.prelu = nn.PReLU()
+        self.leaky_relu = nn.LeakyReLU(0.2)
 
     def forward(self, x):
         x = self.upsample(x)
         x = self.conv_1(x)
         # x = self.group_norm(x)
-        x = self.prelu(x)
+        x = self.leaky_relu(x)
         x = self.conv_2(x)
         # x = self.group_norm(x)
-        x = self.prelu(x)
+        x = self.leaky_relu(x)
         return x
 
 
@@ -161,7 +163,11 @@ class GridNet(nn.Module):
                     self, f"up_{r}_{c}", UpSamplingBlock(input_channel, output_channel)
                 )
 
-        self.lateral_final = LateralBlock(grid_channel_list[0], num_out_channel)
+        self.lateral_final = LateralBlock(
+            grid_channel_list[0],
+            num_out_channel,
+            is_last=True,
+        )
 
     def forward(self, x_l1, x_l2, x_l3):
         # x_l1: [num_batches, 70, 256, 448]
