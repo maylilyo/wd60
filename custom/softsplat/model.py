@@ -20,6 +20,7 @@ class SoftSplat(nn.Module):
         self.flow_net_name = model_option.flow_extractor
         self.height = model_option.height
         self.width = model_option.width
+        self.scale = 20.0
 
         self.feature_extractor = ContextExtractor()
         self.alpha = nn.Parameter(-torch.ones(1))
@@ -78,9 +79,7 @@ class SoftSplat(nn.Module):
         )
 
     def scale_flow_zero(self, flow):
-        SCALE = 20.0
-
-        raw_scaled = (SCALE / 1) * F.interpolate(
+        raw_scaled = (self.scale / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
             mode="bilinear",
@@ -91,24 +90,19 @@ class SoftSplat(nn.Module):
     def scale_flow(self, flow):
         # https://github.com/sniklaus/softmax-splatting/issues/12
 
-        if self.flow_net_name in ["pwcnet", "pwcdcnet"]:
-            SCALE = 20.0
-        elif self.flow_net_name == "ifnet":
-            SCALE = 1.0
-
-        raw_scaled = (SCALE / 1) * F.interpolate(
+        raw_scaled = (self.scale / 1) * F.interpolate(
             input=flow,
             size=(self.height, self.width),
             mode="bilinear",
             align_corners=True,
         )
-        half_scaled = (SCALE / 2) * F.interpolate(
+        half_scaled = (self.scale / 2) * F.interpolate(
             input=flow,
             size=(self.height // 2, self.width // 2),
             mode="bilinear",
             align_corners=True,
         )
-        quarter_scaled = (SCALE / 4) * F.interpolate(
+        quarter_scaled = (self.scale / 4) * F.interpolate(
             input=flow,
             size=(self.height // 4, self.width // 4),
             mode="bilinear",
@@ -151,19 +145,15 @@ class SoftSplat(nn.Module):
             flow_2to1 = self.flow_extractor(img2, img1)
             # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
 
-            flow_1to2_zero = self.scale_flow_zero(flow_1to2)
-            flow_2to1_zero = self.scale_flow_zero(flow_2to1)
-
-            flow_1tot = flow_1to2 * 0.5
-            flow_2tot = flow_2to1 * 0.5
-
         elif self.flow_net_name == "ifnet":
             flow_1to2, flow_2to1 = self.flow_extractor(img1, img2)
-            flow_1to2_zero = flow_1to2
-            flow_2to1_zero = flow_2to1
+            # flow_1to2, flow_2to1: (num_batches, 2, height, width)
 
-            flow_1tot = flow_1to2 * 0.5
-            flow_2tot = flow_2to1 * 0.5
+        flow_1to2_zero = self.scale_flow_zero(flow_1to2)
+        flow_2to1_zero = self.scale_flow_zero(flow_2to1)
+
+        flow_1tot = flow_1to2 * 0.5
+        flow_2tot = flow_2to1 * 0.5
 
         flow_1to2_pyramid = self.scale_flow(flow_1tot)
         flow_2to1_pyramid = self.scale_flow(flow_2tot)
