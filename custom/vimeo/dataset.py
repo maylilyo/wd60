@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as TF
 
 
 class Vimeo(Dataset):
@@ -11,43 +12,40 @@ class Vimeo(Dataset):
         data_dir,
         state,  # train, test
         is_pt=False,
+        is_aug=True,
     ):
-        self.data_dir = data_dir / "vimeo_triplet"
         self.is_pt = is_pt
+        self.is_aug = is_aug
         if is_pt:
-            self.path_list = self.get_pt_list(state)
+            data_dir = data_dir / "vimeo_pt" / state
+            self.path_list = self.get_pt_list(data_dir, state)
         else:
-            self.path_list = self.get_png_list(state)
+            data_dir = data_dir / "vimeo_triplet"
+            self.path_list = self.get_png_list(data_dir, state)
 
-    def get_pt_list(self, state):
-        total_res_ls = []
-        with open(self.data_dir / f"tri_{state}list.txt", "r") as info_file:
+    def get_pt_list(self, data_dir):
+        pt_list = data_dir.glob("**/*.pt")
+        pt_list = list(pt_list)
+        pt_list.sort()
+        return pt_list
+
+    def get_png_list(self, data_dir, state):
+        triplet_list = []
+        with open(data_dir / f"tri_{state}list.txt", "r") as info_file:
             sequence_list = info_file.readlines()
             if "" in sequence_list:
                 sequence_list.remove("")
             for sequence in sequence_list:
                 sequence = sequence.strip("\n")
-                total_res_ls.append(
-                    str(self.data_dir / "sequences" / sequence / "tensor.pt")
-                )
-        return total_res_ls
-
-    def get_png_list(self, state):
-        tri_img = ["im1.png", "im2.png", "im3.png"]
-        total_res_ls = []
-        with open(self.data_dir / f"tri_{state}list.txt", "r") as info_file:
-            sequence_list = info_file.readlines()
-            if "" in sequence_list:
-                sequence_list.remove("")
-            for sequence in sequence_list:
-                sequence = sequence.strip("\n")
-                tmp_p_ls = []
-                for frame in tri_img:
-                    tmp_p_ls.append(str(self.data_dir / "sequences" / sequence / frame))
-                total_res_ls.append(tmp_p_ls)
-        return total_res_ls
+                path_list = []
+                for file_name in ["im1.png", "im2.png", "im3.png"]:
+                    path_list.append(str(data_dir / "sequences" / sequence / file_name))
+                triplet_list.append(path_list)
+        return triplet_list
 
     def __len__(self):
+        if self.is_aug:
+            return len(self.path_list) * 2
         return len(self.path_list)
 
     def __getitem__(self, idx):
@@ -56,12 +54,14 @@ class Vimeo(Dataset):
             return [img_tensor[0], img_tensor[1], img_tensor[2]]
 
         img_list = []
-        for img_path in self.path_list[idx]:
+        for img_path in self.path_list[idx // 2]:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             img = img.transpose(2, 0, 1)
             img = img.astype(np.float32)
             img /= 255
             img = torch.from_numpy(img)
+            if self.is_aug and idx % 2 == 1:
+                img = TF.hflip(img)
             img_list.append(img)
 
         [img1, target, img2] = img_list

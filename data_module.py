@@ -18,8 +18,18 @@ class CustomDataModule(LightningDataModule):
         self.data_dir = work_dir / cfg.data_module.data_dir
 
     def setup(self, stage):
-        self.train_dataset = Vimeo(data_dir=self.data_dir, state="train", is_pt=True)
-        self.test_dataset = Vimeo(data_dir=self.data_dir, state="test", is_pt=True)
+        self.train_dataset = Vimeo(
+            data_dir=self.data_dir,
+            state="train",
+            is_pt=False,
+            is_aug=True,
+        )
+        self.test_dataset = Vimeo(
+            data_dir=self.data_dir,
+            state="test",
+            is_pt=False,
+            is_aug=False,
+        )
 
     def train_dataloader(self):
         return DataLoader(
