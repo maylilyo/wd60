@@ -54,7 +54,7 @@ class SoftSplat(nn.Module):
             )
             vertical = vertical.view(1, 1, -1, 1)
             vertical = vertical.expand(-1, -1, -1, flow.shape[3])
-            backwarped = torch.cat([horizontal, vertical], dim=1)
+            backwarped = torch.cat([horizontal, vertical], 1)
 
             SoftSplat.backwarp_cache[key] = backwarped
         backwarped = backwarped.type_as(flow)
@@ -112,7 +112,12 @@ class SoftSplat(nn.Module):
         return [raw_scaled, half_scaled, quarter_scaled]
 
     def scale_tenMetric(self, tenMetric):
-        raw_scaled = tenMetric
+        raw_scaled = (self.scale / 1) * F.interpolate(
+            input=tenMetric,
+            size=(self.height, self.width),
+            mode="bilinear",
+            align_corners=True,
+        )
         half_scaled = F.interpolate(
             input=tenMetric,
             size=(self.height // 2, self.width // 2),
@@ -125,6 +130,7 @@ class SoftSplat(nn.Module):
             mode="bilinear",
             align_corners=True,
         )
+
         return [raw_scaled, half_scaled, quarter_scaled]
 
     def forward(self, img1, img2):
