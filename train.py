@@ -1,4 +1,5 @@
 # Standard
+from pathlib import Path
 
 # PIP
 import torch
@@ -64,3 +65,8 @@ def train(cfg):
 
     print("Start testing")
     trainer.test(datamodule=data_module, ckpt_path="best")
+
+    # Save PyTorch model
+    work_dir = Path(cfg.common.work_dir).absolute()
+    weight_dir = work_dir / cfg.common.weight_dir
+    torch.save(module.model.state_dict(), weight_dir / f"{cfg.logger.name}.pt")
