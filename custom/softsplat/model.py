@@ -20,7 +20,7 @@ class SoftSplat(nn.Module):
         self.flow_net_name = model_option.flow_extractor
         self.height = model_option.height
         self.width = model_option.width
-        self.scale = 20.0
+        self.scale = 1.0 if self.flow_net_name == "ifnet" else 20.0
 
         self.feature_extractor = ContextExtractor()
         self.alpha = nn.Parameter(-torch.ones(1))
@@ -161,13 +161,13 @@ class SoftSplat(nn.Module):
         flow_1tot = flow_1to2 * 0.5
         flow_2tot = flow_2to1 * 0.5
 
-        flow_1to2_pyramid = self.scale_flow(flow_1tot)
-        flow_2to1_pyramid = self.scale_flow(flow_2tot)
+        flow_1tot_pyramid = self.scale_flow(flow_1tot)
+        flow_2tot_pyramid = self.scale_flow(flow_2tot)
 
         target_1to2 = self.backwarp(img2, flow_1to2_zero)
         target_2to1 = self.backwarp(img1, flow_2to1_zero)
 
-        # flow_1to2_pyramid, flow_2to1_pyramid: [raw_scaled, half_scaled, quarter_scaled]
+        # flow_1tot_pyramid, flow_2tot_pyramid: [raw_scaled, half_scaled, quarter_scaled]
         # raw_scaled: (num_batches, 2, height, width)
         # half_scaled: (num_batches, 2, height / 2, width / 2)
         # quarter_scaled: (num_batches, 2, height / 4, width / 4)
@@ -190,22 +190,22 @@ class SoftSplat(nn.Module):
 
         warped_img1 = softmax_splatting(
             input=img1,
-            flow=flow_1to2_pyramid[0],
+            flow=flow_1tot_pyramid[0],
             metric=self.alpha * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_1 = softmax_splatting(
             input=feature_pyramid1[0],
-            flow=flow_1to2_pyramid[0],
+            flow=flow_1tot_pyramid[0],
             metric=self.alpha * tenMetric_ls_1to2[0],
         )
         warped_pyramid1_2 = softmax_splatting(
             input=feature_pyramid1[1],
-            flow=flow_1to2_pyramid[1],
+            flow=flow_1tot_pyramid[1],
             metric=self.alpha * tenMetric_ls_1to2[1],
         )
         warped_pyramid1_3 = softmax_splatting(
             input=feature_pyramid1[2],
-            flow=flow_1to2_pyramid[2],
+            flow=flow_1tot_pyramid[2],
             metric=self.alpha * tenMetric_ls_1to2[2],
         )
         # warped_img1: (num_batches, 3, height, width)
@@ -220,22 +220,22 @@ class SoftSplat(nn.Module):
 
         warped_img2 = softmax_splatting(
             input=img2,
-            flow=flow_2to1_pyramid[0],
+            flow=flow_2tot_pyramid[0],
             metric=self.alpha * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_1 = softmax_splatting(
             input=feature_pyramid2[0],
-            flow=flow_2to1_pyramid[0],
+            flow=flow_2tot_pyramid[0],
             metric=self.alpha * tenMetric_ls_2to1[0],
         )
         warped_pyramid2_2 = softmax_splatting(
             input=feature_pyramid2[1],
-            flow=flow_2to1_pyramid[1],
+            flow=flow_2tot_pyramid[1],
             metric=self.alpha * tenMetric_ls_2to1[1],
         )
         warped_pyramid2_3 = softmax_splatting(
             input=feature_pyramid2[2],
-            flow=flow_2to1_pyramid[2],
+            flow=flow_2tot_pyramid[2],
             metric=self.alpha * tenMetric_ls_2to1[2],
         )
         # warped_img2: (num_batches, 3, height, width)

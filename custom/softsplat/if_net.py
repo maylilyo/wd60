@@ -9,9 +9,9 @@ class IFBlock(nn.Module):
         super().__init__()
         self.conv0 = nn.Sequential(
             nn.Conv2d(in_planes, c // 2, 3, 2, 1, 1, bias=True),
-            nn.PReLU(c // 2),
+            nn.LeakyReLU(0.1),
             nn.Conv2d(c // 2, c, 3, 2, 1, 1, bias=True),
-            nn.PReLU(c),
+            nn.LeakyReLU(0.1),
         )
         self.convblock0 = nn.Sequential(
             self.conv(c, c, 3, 1, 1),
@@ -31,7 +31,7 @@ class IFBlock(nn.Module):
         )
         self.flow_conv = nn.Sequential(
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1, bias=True),
-            nn.PReLU(c // 2),
+            nn.LeakyReLU(0.1),
             nn.ConvTranspose2d(c // 2, 4, 4, 2, 1, bias=True),
         )
 
@@ -46,7 +46,7 @@ class IFBlock(nn.Module):
                 dilation=dilation,
                 bias=True,
             ),
-            nn.PReLU(out_planes),
+            nn.LeakyReLU(0.1),
         )
 
     def forward(self, x, flow, scale):
@@ -94,9 +94,9 @@ class IFBlock(nn.Module):
 class IFNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.block0 = IFBlock(3 + 3 + 4, c=90)
-        self.block1 = IFBlock(3 + 3 + 4, c=90)
-        self.block2 = IFBlock(3 + 3 + 4, c=90)
+        self.block0 = IFBlock(3 + 3 + 4, c=128)
+        self.block1 = IFBlock(3 + 3 + 4, c=128)
+        self.block2 = IFBlock(3 + 3 + 4, c=128)
 
     def forward(self, img1, img2, scale_list=[4, 2, 1]):
         # img1, img2: (batch_size, 3, height, width)
