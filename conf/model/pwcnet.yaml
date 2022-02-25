@@ -1,0 +1,3 @@
+flow_extractor: pwcnet  # pwcnet, pwcdcnet, ifnet
+width: 448
+height: 256
