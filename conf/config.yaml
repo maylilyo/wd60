@@ -9,9 +9,9 @@ defaults:
     - checkpoint
     - early_stop
     - swa
-  - model: base
-  - optimizer: adam
-  - lr_scheduler: none
+  - model: pwcdcnet
+  - optimizer: adamw
+  - lr_scheduler: step_lr
 
 # Override
 common:
@@ -19,11 +19,11 @@ common:
 
 trainer:
   gpus: 4
-  max_epochs: 15
+  max_epochs: 20
   strategy: dp
-  
+
 data_module:
   batch_size: 16
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-5
