@@ -28,12 +28,12 @@ class CustomModule(pl.LightningModule):
             softsplat_path = f"{weight_dir}/softsplat.pt"
             state_dict = torch.load(softsplat_path)
             self.model.load_state_dict(state_dict, strict=False)
-            self.freeze_module(self.model)
-
-        estimator_path = f"{weight_dir}/{cfg.model.flow_extractor}.pt"
-        state_dict = torch.load(estimator_path)
-        self.model.flow_extractor.load_state_dict(state_dict, strict=False)
-        self.unfreeze_module(self.model.flow_extractor)
+            # self.freeze_module(self.model)
+            # self.unfreeze_module(self.model.flow_extractor)
+        else:
+            estimator_path = f"{weight_dir}/{cfg.model.flow_extractor}.pt"
+            state_dict = torch.load(estimator_path)
+            self.model.flow_extractor.load_state_dict(state_dict, strict=False)
 
         self.criterion = self.get_loss_function()
 
@@ -74,14 +74,20 @@ class CustomModule(pl.LightningModule):
 
         if name == "SGD".lower():
             return torch.optim.SGD(
-                self.parameters(),
+                filter(lambda p: p.requires_grad, self.parameters()),
                 lr=self.cfg.optimizer.lr,
                 momentum=self.cfg.optimizer.momentum,
             )
         elif name == "Adam".lower():
-            return torch.optim.Adam(self.parameters(), lr=self.cfg.optimizer.lr)
+            return torch.optim.Adam(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.cfg.optimizer.lr,
+            )
         elif name == "AdamW".lower():
-            return torch.optim.AdamW(self.parameters(), lr=self.cfg.optimizer.lr)
+            return torch.optim.AdamW(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.cfg.optimizer.lr,
+            )
 
         raise ValueError(f"{name} is not on the custom optimizer list!")
 
@@ -94,7 +100,7 @@ class CustomModule(pl.LightningModule):
             return OneCycleLR(
                 optimizer=optimizer,
                 max_lr=self.cfg.optimizer.lr,
-                total_steps=self.cfg.trainer.max_epochs,
+                total_steps=self.cfg.trainer.max_epochs * 3268,  # batch_size=16: 3268
                 anneal_strategy=self.cfg.lr_scheduler.anneal_strategy,
             )
         elif name == "CosineAnnealingWarmRestarts".lower():
@@ -131,7 +137,10 @@ class CustomModule(pl.LightningModule):
 
         return {
             "optimizer": optimizer,
-            "lr_scheduler": self.lr_scheduler,
+            "lr_scheduler": {
+                "scheduler": self.lr_scheduler,
+                "interval": "step",
+            },
         }
 
     def training_step(self, batch, batch_idx):
@@ -146,17 +155,18 @@ class CustomModule(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         metric = self.metric_function(y_hat, y)
 
-        if self.lr_scheduler is not None:
-            lr = self.lr_scheduler.get_last_lr()[0]
-            self.log("step_lr", lr)
+        opt = self.optimizers()
+        lr = opt.param_groups[0]["lr"]
+        self.log("lr", lr, prog_bar=True)
 
-        self.log("train_loss", loss)
-        self.log("train_psnr", metric)
+        self.log("train_psnr", metric, prog_bar=True)
         return loss
 
     def training_step_end(self, batch_parts):
         # losses from each GPU on DP strategy
-        return batch_parts.mean()
+        loss = batch_parts.mean()
+        self.log("train_loss", loss)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         img1, img2, y = batch
@@ -170,12 +180,8 @@ class CustomModule(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         metric = self.metric_function(y_hat, y)
 
-        if self.lr_scheduler is not None:
-            lr = self.lr_scheduler.get_last_lr()[0]
-            self.log("lr", lr)
-
-        self.log("val_loss", loss, sync_dist=True)
-        self.log("val_psnr", metric, sync_dist=True)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val_psnr", metric, on_step=False, on_epoch=True, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         img1, img2, y = batch
@@ -189,8 +195,8 @@ class CustomModule(pl.LightningModule):
         loss = self.criterion(y_hat, y)
         metric = self.metric_function(y_hat, y)
 
-        self.log("test_loss", loss, sync_dist=True)
-        self.log("test_psnr", metric, sync_dist=True)
+        self.log("test_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("test_psnr", metric, on_step=False, on_epoch=True, sync_dist=True)
 
     def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
         optimizer.zero_grad(set_to_none=True)
