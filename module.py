@@ -20,14 +20,36 @@ class CustomModule(pl.LightningModule):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
+        weight_dir = f"{cfg.common.work_dir}/weights"
 
         self.model = SoftSplat(cfg.model)
 
+        if cfg.model.flow_extractor == "ifnet":
+            softsplat_path = f"{weight_dir}/softsplat.pt"
+            state_dict = torch.load(softsplat_path)
+            self.model.load_state_dict(state_dict, strict=False)
+            self.freeze_module(self.model)
+
+        estimator_path = f"{weight_dir}/{cfg.model.flow_extractor}.pt"
+        state_dict = torch.load(estimator_path)
+        self.model.flow_extractor.load_state_dict(state_dict, strict=False)
+        self.unfreeze_module(self.model.flow_extractor)
+
         self.criterion = self.get_loss_function()
-        self.optimizer = self.get_optimizer()
-        self.lr_scheduler = self.get_lr_scheduler()
 
         self.metric_function = psnr
+
+    def freeze_module(self, module):
+        for name, child in module.named_children():
+            for param in child.parameters():
+                param.requires_grad = False
+            self.freeze_module(child)
+
+    def unfreeze_module(self, module):
+        for name, child in module.named_children():
+            for param in child.parameters():
+                param.requires_grad = True
+            self.unfreeze_module(child)
 
     def get_loss_function(self):
         name = self.cfg.module.criterion.lower()
@@ -42,6 +64,8 @@ class CustomModule(pl.LightningModule):
             return nn.CrossEntropyLoss()
         elif name == "BCE".lower():
             return nn.BCEWithLogitsLoss()
+        elif name == "LAP".lower():
+            return c_loss.LapLoss()
 
         raise ValueError(f"{name} is not on the custom criterion list!")
 
@@ -61,28 +85,28 @@ class CustomModule(pl.LightningModule):
 
         raise ValueError(f"{name} is not on the custom optimizer list!")
 
-    def get_lr_scheduler(self):
+    def get_lr_scheduler(self, optimizer):
         name = self.cfg.lr_scheduler.name.lower()
 
         if name == "None".lower():
             return None
         if name == "OneCycleLR".lower():
             return OneCycleLR(
-                optimizer=self.optimizer,
+                optimizer=optimizer,
                 max_lr=self.cfg.optimizer.lr,
                 total_steps=self.cfg.trainer.max_epochs,
                 anneal_strategy=self.cfg.lr_scheduler.anneal_strategy,
             )
         elif name == "CosineAnnealingWarmRestarts".lower():
             return CosineAnnealingWarmRestarts(
-                optimizer=self.optimizer,
+                optimizer=optimizer,
                 T_0=self.cfg.lr_scheduler.T_0,
                 T_mult=self.cfg.lr_scheduler.T_mult,
                 eta_min=self.cfg.lr_scheduler.eta_min,
             )
         elif name == "StepLR".lower():
             return StepLR(
-                optimizer=self.optimizer,
+                optimizer=optimizer,
                 step_size=self.cfg.lr_scheduler.step_size,
                 gamma=self.cfg.lr_scheduler.gamma,
             )
@@ -99,11 +123,14 @@ class CustomModule(pl.LightningModule):
         return out
 
     def configure_optimizers(self):
+        optimizer = self.get_optimizer()
+        self.lr_scheduler = self.get_lr_scheduler(optimizer)
+
         if self.lr_scheduler is None:
-            return self.optimizer
+            return optimizer
 
         return {
-            "optimizer": self.optimizer,
+            "optimizer": optimizer,
             "lr_scheduler": self.lr_scheduler,
         }
 
@@ -118,6 +145,10 @@ class CustomModule(pl.LightningModule):
 
         loss = self.criterion(y_hat, y)
         metric = self.metric_function(y_hat, y)
+
+        if self.lr_scheduler is not None:
+            lr = self.lr_scheduler.get_last_lr()[0]
+            self.log("step_lr", lr)
 
         self.log("train_loss", loss)
         self.log("train_psnr", metric)
