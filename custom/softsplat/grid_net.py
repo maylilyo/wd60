@@ -12,17 +12,17 @@ class LateralBlock(nn.Module):
             ch_in,
             ch_out,
             kernel_size=3,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.conv_2 = nn.Conv2d(
             ch_out,
             ch_out,
             kernel_size=3,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.group_norm = (nn.GroupNorm(ch_out // 2, ch_out),)
         self.leaky_relu = nn.LeakyReLU(0.2)
@@ -34,7 +34,7 @@ class LateralBlock(nn.Module):
                 kernel_size=3,
                 padding=2,
                 dilation=2,
-                bias=False,
+                bias=True,
             )
 
     def forward(self, x):
@@ -60,18 +60,18 @@ class DownSamplingBlock(nn.Module):
             ch_out,
             kernel_size=3,
             stride=2,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.conv_2 = nn.Conv2d(
             ch_out,
             ch_out,
             kernel_size=3,
             stride=1,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.group_norm = nn.GroupNorm(ch_out // 2, ch_out)
         self.leaky_relu = nn.LeakyReLU(0.2)
@@ -94,17 +94,17 @@ class UpSamplingBlock(nn.Module):
             ch_in,
             ch_out,
             kernel_size=3,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.conv_2 = nn.Conv2d(
             ch_out,
             ch_out,
             kernel_size=3,
-            padding=2,
-            dilation=2,
-            bias=False,
+            padding=1,
+            dilation=1,
+            bias=True,
         )
         self.group_norm = nn.GroupNorm(ch_out // 2, ch_out)
         self.leaky_relu = nn.LeakyReLU(0.2)

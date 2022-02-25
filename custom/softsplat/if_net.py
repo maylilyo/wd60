@@ -8,34 +8,31 @@ class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
         super().__init__()
         self.conv0 = nn.Sequential(
-            nn.Conv2d(in_planes, c // 2, 3, 2, 2, 2, bias=False),
-            # nn.GroupNorm(c // 16, c // 2),
+            nn.Conv2d(in_planes, c // 2, 3, 2, 1, 1, bias=True),
             nn.PReLU(c // 2),
-            nn.Conv2d(c // 2, c, 3, 2, 2, 2, bias=False),
-            # nn.GroupNorm(c // 16, c),
+            nn.Conv2d(c // 2, c, 3, 2, 1, 1, bias=True),
             nn.PReLU(c),
         )
         self.convblock0 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
+            self.conv(c, c, 3, 1, 1),
+            self.conv(c, c, 3, 1, 1),
         )
         self.convblock1 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
+            self.conv(c, c, 3, 1, 1),
+            self.conv(c, c, 3, 1, 1),
         )
         self.convblock2 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
+            self.conv(c, c, 3, 1, 1),
+            self.conv(c, c, 3, 1, 1),
         )
         self.convblock3 = nn.Sequential(
-            self.conv(c, c, 3, 2, 2),
-            self.conv(c, c, 3, 2, 2),
+            self.conv(c, c, 3, 1, 1),
+            self.conv(c, c, 3, 1, 1),
         )
         self.flow_conv = nn.Sequential(
-            nn.ConvTranspose2d(c, c // 2, 4, 2, 1, bias=False),
-            # nn.GroupNorm(c // 16, c // 2),
+            nn.ConvTranspose2d(c, c // 2, 4, 2, 1, bias=True),
             nn.PReLU(c // 2),
-            nn.ConvTranspose2d(c // 2, 4, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(c // 2, 4, 4, 2, 1, bias=True),
         )
 
     @staticmethod
@@ -47,9 +44,8 @@ class IFBlock(nn.Module):
                 kernel_size=kernel_size,
                 padding=padding,
                 dilation=dilation,
-                bias=False,
+                bias=True,
             ),
-            # nn.GroupNorm(out_planes // 16, out_planes),
             nn.PReLU(out_planes),
         )
 
