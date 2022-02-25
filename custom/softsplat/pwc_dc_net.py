@@ -23,7 +23,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
             dilation=dilation,
             bias=True,
         ),
-        nn.ReLU(),
+        nn.LeakyReLU(0.1),
     )
 
 
