@@ -20,7 +20,7 @@ class SoftSplat(nn.Module):
         self.flow_net_name = model_option.flow_extractor
         self.height = model_option.height
         self.width = model_option.width
-        self.scale = 1.0 if self.flow_net_name == "ifnet" else 20.0
+        self.scale = 20.0
 
         self.feature_extractor = ContextExtractor()
         self.alpha = nn.Parameter(-torch.ones(1))
@@ -136,41 +136,36 @@ class SoftSplat(nn.Module):
     def forward(self, img1, img2):
         # img1, img2: (num_batches, 3, height, width)
 
-        # ↓ Optional Information Provider
-        feature_pyramid1 = self.feature_extractor(img1)
-        feature_pyramid2 = self.feature_extractor(img2)
-
-        # feature_pyramid1, feature_pyramid2: [layer1, layer2, layer3]
-        # layer1: (num_batches, 32, height, width)
-        # layer2: (num_batches, 64, height / 2, width / 2)
-        # layer3: (num_batches, 96, height / 4, width / 4)
-
         # ↓ Optical Flow Estimator
         if self.flow_net_name in ["pwcnet", "pwcdcnet"]:
             flow_1to2 = self.flow_extractor(img1, img2)
             flow_2to1 = self.flow_extractor(img2, img1)
             # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
-
         elif self.flow_net_name == "ifnet":
             flow_1to2, flow_2to1 = self.flow_extractor(img1, img2)
             # flow_1to2, flow_2to1: (num_batches, 2, height, width)
 
         flow_1to2_zero = self.scale_flow_zero(flow_1to2)
         flow_2to1_zero = self.scale_flow_zero(flow_2to1)
-
-        flow_1tot = flow_1to2 * 0.5
-        flow_2tot = flow_2to1 * 0.5
-
-        flow_1tot_pyramid = self.scale_flow(flow_1tot)
-        flow_2tot_pyramid = self.scale_flow(flow_2tot)
-
         target_1to2 = self.backwarp(img2, flow_1to2_zero)
         target_2to1 = self.backwarp(img1, flow_2to1_zero)
 
+        flow_1tot = flow_1to2 * 0.5
+        flow_2tot = flow_2to1 * 0.5
+        flow_1tot_pyramid = self.scale_flow(flow_1tot)
+        flow_2tot_pyramid = self.scale_flow(flow_2tot)
         # flow_1tot_pyramid, flow_2tot_pyramid: [raw_scaled, half_scaled, quarter_scaled]
         # raw_scaled: (num_batches, 2, height, width)
         # half_scaled: (num_batches, 2, height / 2, width / 2)
         # quarter_scaled: (num_batches, 2, height / 4, width / 4)
+
+        # ↓ Optional Information Provider
+        feature_pyramid1 = self.feature_extractor(img1)
+        feature_pyramid2 = self.feature_extractor(img2)
+        # feature_pyramid1, feature_pyramid2: [layer1, layer2, layer3]
+        # layer1: (num_batches, 32, height, width)
+        # layer2: (num_batches, 64, height / 2, width / 2)
+        # layer3: (num_batches, 96, height / 4, width / 4)
 
         # ↓ Softmax Splatting
         tenMetric_1to2 = self.l1_loss(img1, target_1to2)
