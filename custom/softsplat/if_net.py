@@ -9,9 +9,9 @@ class IFBlock(nn.Module):
         super().__init__()
         self.conv0 = nn.Sequential(
             nn.Conv2d(in_planes, c // 2, 3, 2, 1, 1, bias=True),
-            nn.LeakyReLU(0.1),
+            nn.PReLU(c // 2),
             nn.Conv2d(c // 2, c, 3, 2, 1, 1, bias=True),
-            nn.LeakyReLU(0.1),
+            nn.PReLU(c),
         )
         self.convblock0 = nn.Sequential(
             self.conv(c, c, 3, 1, 1),
@@ -31,7 +31,7 @@ class IFBlock(nn.Module):
         )
         self.flow_conv = nn.Sequential(
             nn.ConvTranspose2d(c, c // 2, 4, 2, 1, bias=True),
-            nn.LeakyReLU(0.1),
+            nn.PReLU(c // 2),
             nn.ConvTranspose2d(c // 2, 4, 4, 2, 1, bias=True),
         )
 
@@ -46,7 +46,7 @@ class IFBlock(nn.Module):
                 dilation=dilation,
                 bias=True,
             ),
-            nn.LeakyReLU(0.1),
+            nn.PReLU(out_planes),
         )
 
     def forward(self, x, flow, scale):
@@ -55,7 +55,7 @@ class IFBlock(nn.Module):
                 x,
                 scale_factor=1.0 / scale,
                 mode="bilinear",
-                align_corners=True,
+                align_corners=False,
                 recompute_scale_factor=False,
             )
             flow = (
@@ -63,7 +63,7 @@ class IFBlock(nn.Module):
                     flow,
                     scale_factor=1.0 / scale,
                     mode="bilinear",
-                    align_corners=True,
+                    align_corners=False,
                     recompute_scale_factor=False,
                 )
                 / scale
@@ -82,7 +82,7 @@ class IFBlock(nn.Module):
                 flow,
                 scale_factor=scale,
                 mode="bilinear",
-                align_corners=True,
+                align_corners=False,
                 recompute_scale_factor=False,
             )
             * scale
@@ -119,6 +119,7 @@ class IFNet(nn.Module):
                 flow=torch.cat((flow[:, 2:], flow[:, :2]), 1),
                 scale=scale_list[i],
             )
+            new_flow2 = torch.cat((new_flow2[:, 2:], new_flow2[:, :2]), 1)
             new_flow = (new_flow1 + new_flow2) / 2
             flow = flow + new_flow
 
