@@ -43,7 +43,7 @@ class CustomDataModule(LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=self.cfg.data_module.batch_size,
+            batch_size=self.cfg.data_module.test_batch_size,
             shuffle=False,
             num_workers=self.cfg.data_module.num_workers,
             pin_memory=True,
@@ -52,7 +52,7 @@ class CustomDataModule(LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=self.cfg.data_module.batch_size,
+            batch_size=self.cfg.data_module.test_batch_size,
             shuffle=False,
             num_workers=self.cfg.data_module.num_workers,
             pin_memory=True,
