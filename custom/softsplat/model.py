@@ -10,6 +10,7 @@ from .modules import ContextExtractor, MatricUNet
 from .pwc_net import PWCNet
 from .pwc_dc_net import PWCDCNet
 from .softmax_splatting import softmax_splatting
+from .raft.model import RAFT
 
 
 class SoftSplat(nn.Module):
@@ -20,7 +21,7 @@ class SoftSplat(nn.Module):
         self.flow_net_name = model_option.flow_extractor
         self.height = model_option.height
         self.width = model_option.width
-        self.scale = 20.0
+        self.scale = 1.0
 
         self.feature_extractor = ContextExtractor()
         self.alpha = nn.Parameter(-torch.ones(1))
@@ -34,6 +35,8 @@ class SoftSplat(nn.Module):
             self.flow_extractor = PWCDCNet()
         elif self.flow_net_name == "ifnet":
             self.flow_extractor = IFNet()
+        elif self.flow_net_name == "raft":
+            self.flow_extractor = RAFT(model_option.raft)
 
     def backwarp(self, input_tensor, flow):
         key = flow.shape
@@ -141,6 +144,10 @@ class SoftSplat(nn.Module):
             flow_1to2 = self.flow_extractor(img1, img2)
             flow_2to1 = self.flow_extractor(img2, img1)
             # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
+        elif self.flow_net_name == "raft":
+            flow_1to2 = self.flow_extractor(img1, img2)
+            flow_2to1 = self.flow_extractor(img2, img1)
+            # flow_1to2, flow_2to1: (num_batches, 2, height, width)
         elif self.flow_net_name == "ifnet":
             flow_1to2, flow_2to1 = self.flow_extractor(img1, img2)
             # flow_1to2, flow_2to1: (num_batches, 2, height, width)
