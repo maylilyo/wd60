@@ -1,0 +1,10 @@
+flow_extractor: raft_s
+width: 448
+height: 256
+
+raft:
+  iters: 12
+  small: true
+  corr_levels: 4
+  corr_radius: 3
+  dropout: 0.3
