@@ -137,3 +137,4 @@ wandb/
 output/
 outputs/
 .vscode/
+weights/
