@@ -1,6 +1,8 @@
 # Standard
 
 # PIP
+import lpips
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import (
@@ -8,7 +10,6 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
 )
-import pytorch_lightning as pl
 
 # Custom
 from custom.softsplat.model import SoftSplat
@@ -19,25 +20,41 @@ from helper.metric import psnr
 class CustomModule(pl.LightningModule):
     def __init__(self, cfg):
         super().__init__()
+        self.save_hyperparameters()
         self.cfg = cfg
-        weight_dir = f"{cfg.common.work_dir}/weights"
 
         self.model = SoftSplat(cfg.model)
-
-        if cfg.model.flow_extractor == "ifnet":
-            softsplat_path = f"{weight_dir}/softsplat.pt"
-            state_dict = torch.load(softsplat_path)
-            self.model.load_state_dict(state_dict, strict=False)
-            # self.freeze_module(self.model)
-            # self.unfreeze_module(self.model.flow_extractor)
-        else:
-            estimator_path = f"{weight_dir}/{cfg.model.flow_extractor}.pt"
-            state_dict = torch.load(estimator_path)
-            self.model.flow_extractor.load_state_dict(state_dict, strict=False)
+        self.load_pretrained_model()
 
         self.criterion = self.get_loss_function()
-
         self.metric_function = psnr
+
+    def load_pretrained_model(self):
+        # Load SoftSplat
+        weight_dir = f"{self.cfg.common.work_dir}/weights"
+        softsplat_path = f"{weight_dir}/softsplat.pt"
+        state_dict = torch.load(softsplat_path, map_location=self.device)
+        self.model.load_state_dict(state_dict, strict=False)
+
+        # Load estimator
+        if self.cfg.model.flow_extractor == "pwcnet":
+            self.model.flow_extractor.load_state_dict(
+                {
+                    strKey.replace("module", "net"): tenWeight
+                    for strKey, tenWeight in torch.hub.load_state_dict_from_url(
+                        url="http://content.sniklaus.com/github/pytorch-pwc/network-default.pytorch",
+                        file_name="pwc-default",
+                    ).items()
+                }
+            )
+        else:
+            estimator_path = f"{weight_dir}/{self.cfg.model.flow_extractor}.pt"
+            state_dict = torch.load(estimator_path, map_location=self.device)
+            if self.cfg.model.flow_extractor in ["raft", "raft_s"]:
+                for key in list(state_dict.keys()):
+                    new_key = key.replace("module.", "")
+                    state_dict[new_key] = state_dict.pop(key)
+            self.model.flow_extractor.load_state_dict(state_dict, strict=True)
 
     def freeze_module(self, module):
         for name, child in module.named_children():
@@ -66,6 +83,8 @@ class CustomModule(pl.LightningModule):
             return nn.BCEWithLogitsLoss()
         elif name == "LAP".lower():
             return c_loss.LapLoss()
+        elif name == "LPIPS".lower():
+            return lpips.LPIPS(net="alex", verbose=False)
 
         raise ValueError(f"{name} is not on the custom criterion list!")
 
@@ -87,6 +106,7 @@ class CustomModule(pl.LightningModule):
             return torch.optim.AdamW(
                 filter(lambda p: p.requires_grad, self.parameters()),
                 lr=self.cfg.optimizer.lr,
+                weight_decay=1e-5,
             )
 
         raise ValueError(f"{name} is not on the custom optimizer list!")
@@ -197,6 +217,3 @@ class CustomModule(pl.LightningModule):
 
         self.log("test_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
         self.log("test_psnr", metric, on_step=False, on_epoch=True, sync_dist=True)
-
-    def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
-        optimizer.zero_grad(set_to_none=True)
