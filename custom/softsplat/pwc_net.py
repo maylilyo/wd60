@@ -7,321 +7,519 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # Custom
-from .correlation import correlation
+from .correlation import FunctionCorrelation
 
-PROJECT_DIR = Path(__file__).absolute().parent.parent.parent
-WEIGHT_DIR = PROJECT_DIR / 'weights'
-
-
-class Extractor(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        self.netOne = self.get_CNN(3, 8)
-        self.netTwo = self.get_CNN(8, 16)
-        self.netThr = self.get_CNN(16, 32)
-        self.netFou = self.get_CNN(32, 64)
-        self.netFiv = self.get_CNN(64, 128)
-        self.netSix = self.get_CNN(128, 196)
-
-    def get_CNN(self, in_channels, out_channels):
-        return nn.Sequential(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=2,
-                padding=1,
-            ),
-            nn.ReLU(),
-            nn.Conv2d(
-                in_channels=out_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.ReLU(),
-            nn.Conv2d(
-                in_channels=out_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.ReLU()
-        )
-
-    def forward(self, input):
-        tenOne = self.netOne(input)
-        tenTwo = self.netTwo(tenOne)
-        tenThr = self.netThr(tenTwo)
-        tenFou = self.netFou(tenThr)
-        tenFiv = self.netFiv(tenFou)
-        tenSix = self.netSix(tenFiv)
-
-        return [tenOne, tenTwo, tenThr, tenFou, tenFiv, tenSix]
+backwarp_tenGrid = {}
+backwarp_tenPartial = {}
 
 
-class Decoder(nn.Module):
-    tmp_list = [None, None, 81 + 32 + 2 + 2, 81 + 64 +
-                2 + 2, 81 + 96 + 2 + 2, 81 + 128 + 2 + 2, 81, None]
-
-    grid_cache = {}
-    partial_cache = {}
-
-    def __init__(self, intLevel):
-        super().__init__()
-
-        intPrevious = self.tmp_list[intLevel + 1]
-        intCurrent = self.tmp_list[intLevel]
-
-        if intLevel < 6:
-            self.netUpflow = nn.ConvTranspose2d(
-                in_channels=2,
-                out_channels=2,
-                kernel_size=4,
-                stride=2,
-                padding=1,
+def backwarp(tenInput, tenFlow):
+    if str(tenFlow.shape) not in backwarp_tenGrid:
+        tenHor = (
+            torch.linspace(
+                -1.0 + (1.0 / tenFlow.shape[3]),
+                1.0 - (1.0 / tenFlow.shape[3]),
+                tenFlow.shape[3],
             )
-        if intLevel < 6:
-            self.netUpfeat = nn.ConvTranspose2d(
-                in_channels=intPrevious + 128 + 128 + 96 + 64 + 32,
-                out_channels=2,
-                kernel_size=4,
-                stride=2,
-                padding=1,
+            .view(1, 1, 1, -1)
+            .repeat(1, 1, tenFlow.shape[2], 1)
+        )
+        tenVer = (
+            torch.linspace(
+                -1.0 + (1.0 / tenFlow.shape[2]),
+                1.0 - (1.0 / tenFlow.shape[2]),
+                tenFlow.shape[2],
             )
-        if intLevel < 6:
-            self.fltBackwarp = [None, None, None, 5.0,
-                                2.5, 1.25, 0.625, None][intLevel + 1]
-
-        self.netOne = self.get_CNN(intCurrent, 128)
-        self.netTwo = self.get_CNN(intCurrent + 128, 128)
-        self.netThr = self.get_CNN(intCurrent + 128 + 128, 96)
-        self.netFou = self.get_CNN(intCurrent + 128 + 128 + 96, 64)
-        self.netFiv = self.get_CNN(intCurrent + 128 + 128 + 96 + 64, 32)
-        self.netSix = nn.Conv2d(
-            in_channels=intCurrent + 128 + 128 + 96 + 64 + 32,
-            out_channels=2,
-            kernel_size=3,
-            stride=1,
-            padding=1,
+            .view(1, 1, -1, 1)
+            .repeat(1, 1, 1, tenFlow.shape[3])
         )
 
-    def get_CNN(self, in_channels, out_channels):
-        return nn.Sequential(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.ReLU()
+        backwarp_tenGrid[str(tenFlow.shape)] = torch.cat([tenHor, tenVer], 1).cuda()
+    # end
+
+    if str(tenFlow.shape) not in backwarp_tenPartial:
+        backwarp_tenPartial[str(tenFlow.shape)] = tenFlow.new_ones(
+            [tenFlow.shape[0], 1, tenFlow.shape[2], tenFlow.shape[3]]
         )
+    # end
 
-    def backwarp(self, input, flow):
-        key = str(flow.shape)
+    tenFlow = torch.cat(
+        [
+            tenFlow[:, 0:1, :, :] / ((tenInput.shape[3] - 1.0) / 2.0),
+            tenFlow[:, 1:2, :, :] / ((tenInput.shape[2] - 1.0) / 2.0),
+        ],
+        1,
+    )
+    tmp = backwarp_tenPartial[str(tenFlow.shape)]
+    tmp = tmp.type_as(tenInput)
+    tenInput = torch.cat([tenInput, tmp], 1)
 
-        if key in Decoder.grid_cache:
-            backwarped = Decoder.grid_cache[key]
-        else:
-            horizontal = torch.linspace(
-                start=-1.0 + (1.0 / flow.shape[3]),
-                end=1.0 - (1.0 / flow.shape[3]),
-                steps=flow.shape[3],
-            )
-            horizontal = horizontal.view(1, 1, 1, -1)
-            horizontal = horizontal.expand(
-                -1, -1, flow.shape[2], -1)
+    grid = backwarp_tenGrid[str(tenFlow.shape)]
+    grid = grid.type_as(tenFlow)
+    tenOutput = F.grid_sample(
+        input=tenInput,
+        grid=(grid + tenFlow).permute(0, 2, 3, 1),
+        mode="bilinear",
+        padding_mode="zeros",
+        align_corners=False,
+    )
 
-            vertical = torch.linspace(
-                start=-1.0 + (1.0 / flow.shape[2]),
-                end=1.0 - (1.0 / flow.shape[2]),
-                steps=flow.shape[2],
-            )
-            vertical = vertical.view(1, 1, -1, 1)
-            vertical = vertical.expand(-1, -1, -1, flow.shape[3])
+    tenMask = tenOutput[:, -1:, :, :]
+    tenMask[tenMask > 0.999] = 1.0
+    tenMask[tenMask < 1.0] = 0.0
 
-            backwarped = torch.cat(
-                tensors=[horizontal, vertical],
-                dim=1,
-            )
-            backwarped = backwarped.type_as(flow)
-
-        partial = flow.new_ones(
-            [flow.shape[0], 1, flow.shape[2], flow.shape[3]])
-        partial = partial.type_as(flow)
-
-        flow = torch.cat(
-            tensors=[
-                flow[:, 0:1, :, :] /
-                ((input.shape[3] - 1.0) / 2.0),
-                flow[:, 1:2, :, :] /
-                ((input.shape[2] - 1.0) / 2.0)
-            ],
-            dim=1,
-        )
-
-        input = torch.cat([input, partial], dim=1)
-
-        grid = backwarped + flow
-        grid = grid.permute(0, 2, 3, 1)
-
-        output = F.grid_sample(
-            input=input,
-            grid=grid,
-            mode='bilinear',
-            padding_mode='zeros',
-            align_corners=False,
-        )
-
-        mask = output[:, -1:, :, :]
-        mask[mask > 0.999] = 1.0
-        mask[mask < 1.0] = 0.0
-
-        return output[:, :-1, :, :] * mask
-
-    def forward(self, first, second, prev_object):
-        if prev_object is None:
-            input = correlation(
-                first=first,
-                second=second,
-            )
-            feature = F.relu(input)
-        else:
-            flow = self.netUpflow(prev_object['flow'])
-            feature = self.netUpfeat(prev_object['feature'])
-
-            second = self.backwarp(
-                input=second,
-                flow=flow * self.fltBackwarp,
-            )
-            input = correlation(
-                first=first,
-                second=second,
-            )
-            volume = F.relu(input)
-            feature = torch.cat(
-                tensors=[volume, first, flow, feature],
-                dim=1,
-            )
-
-        feature = torch.cat([self.netOne(feature), feature], dim=1)
-        feature = torch.cat([self.netTwo(feature), feature], dim=1)
-        feature = torch.cat([self.netThr(feature), feature], dim=1)
-        feature = torch.cat([self.netFou(feature), feature], dim=1)
-        feature = torch.cat([self.netFiv(feature), feature], dim=1)
-
-        flow = self.netSix(feature)
-
-        return {
-            'flow': flow,
-            'feature': feature
-        }
+    tenOutput = tenOutput[:, :-1, :, :] * tenMask
+    tenOutput = tenOutput.type_as(tenInput)
+    return tenOutput
 
 
-class Refiner(nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        self.conv_1 = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=128,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            dilation=1,
-        )
-        self.conv_2 = nn.Conv2d(
-            in_channels=128,
-            out_channels=128,
-            kernel_size=3,
-            stride=1,
-            padding=2,
-            dilation=2)
-        self.conv_3 = nn.Conv2d(
-            in_channels=128,
-            out_channels=128,
-            kernel_size=3,
-            stride=1,
-            padding=4,
-            dilation=4,
-        )
-        self.conv_4 = nn.Conv2d(
-            in_channels=128,
-            out_channels=96,
-            kernel_size=3,
-            stride=1,
-            padding=8,
-            dilation=8,
-        )
-        self.conv_5 = nn.Conv2d(
-            in_channels=96,
-            out_channels=64,
-            kernel_size=3,
-            stride=1,
-            padding=16,
-            dilation=16,
-        )
-        self.conv_6 = nn.Conv2d(
-            in_channels=64,
-            out_channels=32,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            dilation=1,
-        )
-        self.conv_7 = nn.Conv2d(
-            in_channels=32,
-            out_channels=2,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            dilation=1,
-        )
-        self.relu = nn.ReLU()
-
-    def forward(self, input):
-        out = self.conv_1(input)
-        out = self.relu(out)
-        out = self.conv_2(out)
-        out = self.relu(out)
-        out = self.conv_3(out)
-        out = self.relu(out)
-        out = self.conv_4(out)
-        out = self.relu(out)
-        out = self.conv_5(out)
-        out = self.relu(out)
-        out = self.conv_6(out)
-        out = self.relu(out)
-        out = self.conv_7(out)
-        return out
-
-
+# end
 class PWCNet(nn.Module):
     def __init__(self):
         super().__init__()
+
+        class Extractor(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+                self.netOne = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=3,
+                        out_channels=16,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=16,
+                        out_channels=16,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=16,
+                        out_channels=16,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netTwo = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=16,
+                        out_channels=32,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=32,
+                        out_channels=32,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=32,
+                        out_channels=32,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netThr = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=32,
+                        out_channels=64,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=64,
+                        out_channels=64,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=64,
+                        out_channels=64,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netFou = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=64,
+                        out_channels=96,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=96,
+                        out_channels=96,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=96,
+                        out_channels=96,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netFiv = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=96,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netSix = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=196,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=196,
+                        out_channels=196,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=196,
+                        out_channels=196,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+            # end
+
+            def forward(self, tenInput):
+                tenOne = self.netOne(tenInput)
+                tenTwo = self.netTwo(tenOne)
+                tenThr = self.netThr(tenTwo)
+                tenFou = self.netFou(tenThr)
+                tenFiv = self.netFiv(tenFou)
+                tenSix = self.netSix(tenFiv)
+
+                return [tenOne, tenTwo, tenThr, tenFou, tenFiv, tenSix]
+
+            # end
+
+        # end
+
+        class Decoder(nn.Module):
+            def __init__(self, intLevel):
+                super().__init__()
+
+                intPrevious = [
+                    None,
+                    None,
+                    81 + 32 + 2 + 2,
+                    81 + 64 + 2 + 2,
+                    81 + 96 + 2 + 2,
+                    81 + 128 + 2 + 2,
+                    81,
+                    None,
+                ][intLevel + 1]
+                intCurrent = [
+                    None,
+                    None,
+                    81 + 32 + 2 + 2,
+                    81 + 64 + 2 + 2,
+                    81 + 96 + 2 + 2,
+                    81 + 128 + 2 + 2,
+                    81,
+                    None,
+                ][intLevel + 0]
+
+                if intLevel < 6:
+                    self.netUpflow = nn.ConvTranspose2d(
+                        in_channels=2,
+                        out_channels=2,
+                        kernel_size=4,
+                        stride=2,
+                        padding=1,
+                    )
+                if intLevel < 6:
+                    self.netUpfeat = nn.ConvTranspose2d(
+                        in_channels=intPrevious + 128 + 128 + 96 + 64 + 32,
+                        out_channels=2,
+                        kernel_size=4,
+                        stride=2,
+                        padding=1,
+                    )
+                if intLevel < 6:
+                    self.fltBackwarp = [None, None, None, 5.0, 2.5, 1.25, 0.625, None][
+                        intLevel + 1
+                    ]
+
+                self.netOne = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netTwo = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent + 128,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netThr = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent + 128 + 128,
+                        out_channels=96,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netFou = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent + 128 + 128 + 96,
+                        out_channels=64,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netFiv = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent + 128 + 128 + 96 + 64,
+                        out_channels=32,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                )
+
+                self.netSix = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=intCurrent + 128 + 128 + 96 + 64 + 32,
+                        out_channels=2,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    )
+                )
+
+            # end
+
+            def forward(self, tenOne, tenTwo, objPrevious):
+                tenFlow = None
+                tenFeat = None
+
+                if objPrevious is None:
+                    tenFlow = None
+                    tenFeat = None
+
+                    tenVolume = F.leaky_relu(
+                        input=FunctionCorrelation(tenOne=tenOne, tenTwo=tenTwo),
+                        negative_slope=0.1,
+                        inplace=False,
+                    )
+
+                    tenFeat = torch.cat([tenVolume], 1)
+
+                elif objPrevious is not None:
+                    tenFlow = self.netUpflow(objPrevious["tenFlow"])
+                    tenFeat = self.netUpfeat(objPrevious["tenFeat"])
+
+                    tenVolume = F.leaky_relu(
+                        input=FunctionCorrelation(
+                            tenOne=tenOne,
+                            tenTwo=backwarp(
+                                tenInput=tenTwo, tenFlow=tenFlow * self.fltBackwarp
+                            ),
+                        ),
+                        negative_slope=0.1,
+                        inplace=False,
+                    )
+
+                    tenFeat = torch.cat([tenVolume, tenOne, tenFlow, tenFeat], 1)
+
+                # end
+
+                tenFeat = torch.cat([self.netOne(tenFeat), tenFeat], 1)
+                tenFeat = torch.cat([self.netTwo(tenFeat), tenFeat], 1)
+                tenFeat = torch.cat([self.netThr(tenFeat), tenFeat], 1)
+                tenFeat = torch.cat([self.netFou(tenFeat), tenFeat], 1)
+                tenFeat = torch.cat([self.netFiv(tenFeat), tenFeat], 1)
+
+                tenFlow = self.netSix(tenFeat)
+
+                return {"tenFlow": tenFlow, "tenFeat": tenFeat}
+
+            # end
+
+        # end
+
+        class Refiner(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+                self.netMain = nn.Sequential(
+                    nn.Conv2d(
+                        in_channels=81 + 32 + 2 + 2 + 128 + 128 + 96 + 64 + 32,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        dilation=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=2,
+                        dilation=2,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=128,
+                        kernel_size=3,
+                        stride=1,
+                        padding=4,
+                        dilation=4,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=128,
+                        out_channels=96,
+                        kernel_size=3,
+                        stride=1,
+                        padding=8,
+                        dilation=8,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=96,
+                        out_channels=64,
+                        kernel_size=3,
+                        stride=1,
+                        padding=16,
+                        dilation=16,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=64,
+                        out_channels=32,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        dilation=1,
+                    ),
+                    nn.LeakyReLU(inplace=False, negative_slope=0.1),
+                    nn.Conv2d(
+                        in_channels=32,
+                        out_channels=2,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        dilation=1,
+                    ),
+                )
+
+            # end
+
+            def forward(self, tenInput):
+                return self.netMain(tenInput)
+
+            # end
+
+        # end
+
         self.netExtractor = Extractor()
-        self.netSix = Decoder(6)
-        self.netFiv = Decoder(5)
-        self.netFou = Decoder(4)
-        self.netThr = Decoder(3)
+
         self.netTwo = Decoder(2)
-        self.refiner = Refiner(565)
+        self.netThr = Decoder(3)
+        self.netFou = Decoder(4)
+        self.netFiv = Decoder(5)
+        self.netSix = Decoder(6)
 
-        # state_dict = torch.load(WEIGHT_DIR / 'pwc.pt')
-        # self.load_state_dict(state_dict)
+        self.netRefiner = Refiner()
 
-    def forward(self, first, second):
-        first = self.netExtractor(first)
-        second = self.netExtractor(second)
+    # end
 
-        out = self.netSix(first[-1], second[-1], None)
-        out = self.netFiv(first[-2], second[-2], out)
-        out = self.netFou(first[-3], second[-3], out)
-        out = self.netThr(first[-4], second[-4], out)
-        out = self.netTwo(first[-5], second[-5], out)
+    def forward(self, tenOne, tenTwo):
+        tenOne = self.netExtractor(tenOne)
+        tenTwo = self.netExtractor(tenTwo)
 
-        out = out['flow'] + self.refiner(out['feature'])
-        return out
+        objEstimate = self.netSix(tenOne[-1], tenTwo[-1], None)
+        objEstimate = self.netFiv(tenOne[-2], tenTwo[-2], objEstimate)
+        objEstimate = self.netFou(tenOne[-3], tenTwo[-3], objEstimate)
+        objEstimate = self.netThr(tenOne[-4], tenTwo[-4], objEstimate)
+        objEstimate = self.netTwo(tenOne[-5], tenTwo[-5], objEstimate)
+
+        return (objEstimate["tenFlow"] + self.netRefiner(objEstimate["tenFeat"])) * 20.0
