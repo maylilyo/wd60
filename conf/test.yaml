@@ -1,0 +1,14 @@
+defaults:
+  - _self_
+  - model: raft_s
+
+work_dir: ${hydra:runtime.cwd}
+data_dir: data
+weight_dir: weights
+name: [pytorch weight file name]
+amp: true
+batch_size: 32
+num_workers: 32
+psnr: true
+ssim: true
+lpips: true
