@@ -46,3 +46,8 @@ def coords_grid(batch, ht, wd):
     coords = torch.meshgrid(torch.arange(ht), torch.arange(wd), indexing="ij")
     coords = torch.stack(coords[::-1], dim=0)
     return coords[None].expand(batch, -1, -1, -1)
+
+
+def upflow8(flow, mode="bilinear"):
+    new_size = (8 * flow.shape[2], 8 * flow.shape[3])
+    return 8 * F.interpolate(flow, size=new_size, mode=mode, align_corners=True)

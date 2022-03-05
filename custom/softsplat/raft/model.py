@@ -3,30 +3,51 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .corr import CorrBlock
-from .extractor import BasicEncoder
-from .update import BasicUpdateBlock
-from .utils import coords_grid
+from .extractor import BasicEncoder, SmallEncoder
+from .update import BasicUpdateBlock, SmallUpdateBlock
+from .utils import coords_grid, upflow8
 
 
 class RAFT(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.hidden_dim = 128
-        self.context_dim = 128
+
+        if args.small:
+            self.hidden_dim = 96
+            self.context_dim = 64
+        else:
+            self.hidden_dim = 128
+            self.context_dim = 128
 
         # feature network, context network, and update block
-        self.fnet = BasicEncoder(
-            output_dim=256,
-            norm_fn="instance",
-            dropout=args.dropout,
-        )
-        self.cnet = BasicEncoder(
-            output_dim=self.hidden_dim + self.context_dim,
-            norm_fn="batch",
-            dropout=args.dropout,
-        )
-        self.update_block = BasicUpdateBlock(self.args, hidden_dim=self.hidden_dim)
+        if args.small:
+            self.fnet = SmallEncoder(
+                output_dim=128,
+                norm_fn="instance",
+                dropout=args.dropout,
+                is_list=True,
+            )
+            self.cnet = SmallEncoder(
+                output_dim=self.hidden_dim + self.context_dim,
+                norm_fn="none",
+                dropout=args.dropout,
+            )
+            self.update_block = SmallUpdateBlock(self.args, hidden_dim=self.hidden_dim)
+
+        else:
+            self.fnet = BasicEncoder(
+                output_dim=256,
+                norm_fn="instance",
+                dropout=args.dropout,
+                is_list=True,
+            )
+            self.cnet = BasicEncoder(
+                output_dim=self.hidden_dim + self.context_dim,
+                norm_fn="batch",
+                dropout=args.dropout,
+            )
+            self.update_block = BasicUpdateBlock(self.args, hidden_dim=self.hidden_dim)
 
     def initialize_flow(self, img):
         """Flow is represented as difference between two coordinate grids flow = coords1 - coords0"""
@@ -79,6 +100,6 @@ class RAFT(nn.Module):
             coords1 = coords1 + delta_flow
 
         # upsample predictions
-        flow_up = self.upsample_flow(coords1 - coords0, up_mask)
-
-        return flow_up
+        if up_mask is None:
+            return upflow8(coords1 - coords0)
+        return self.upsample_flow(coords1 - coords0, up_mask)
