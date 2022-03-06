@@ -48,6 +48,6 @@ def coords_grid(batch, ht, wd):
     return coords[None].expand(batch, -1, -1, -1)
 
 
-def upflow8(flow, mode="bilinear"):
-    new_size = (8 * flow.shape[2], 8 * flow.shape[3])
-    return 8 * F.interpolate(flow, size=new_size, mode=mode, align_corners=True)
+def upflow2(flow, mode="bilinear"):
+    new_size = (2 * flow.shape[2], 2 * flow.shape[3])
+    return 2 * F.interpolate(flow, size=new_size, mode=mode, align_corners=True)

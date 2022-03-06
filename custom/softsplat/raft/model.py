@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from .corr import CorrBlock
 from .extractor import BasicEncoder, SmallEncoder
 from .update import BasicUpdateBlock, SmallUpdateBlock
-from .utils import coords_grid, upflow8
+from .utils import coords_grid, upflow2
 
 
 class RAFT(nn.Module):
@@ -34,7 +34,6 @@ class RAFT(nn.Module):
                 dropout=args.dropout,
             )
             self.update_block = SmallUpdateBlock(self.args, hidden_dim=self.hidden_dim)
-
         else:
             self.fnet = BasicEncoder(
                 output_dim=256,
@@ -101,5 +100,5 @@ class RAFT(nn.Module):
 
         # upsample predictions
         if up_mask is None:
-            return upflow8(coords1 - coords0)
+            return upflow2(coords1 - coords0)
         return self.upsample_flow(coords1 - coords0, up_mask)
