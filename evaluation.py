@@ -8,6 +8,7 @@ from lpips import LPIPS
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from ptflops import get_model_complexity_info
 
 # Custom
 from custom.softsplat.model import SoftSplat
@@ -112,3 +113,7 @@ def test(cfg):
     if cfg.lpips:
         average_lpips = total_lpips / len(test_dataloader)
         print(f"LPIPS: {average_lpips:.2f}")
+
+    macs, params = get_model_complexity_info(model, (3, 256, 448), verbose=False)
+    print("{:<30}  {:<8}".format("Computational complexity: ", macs))
+    print("{:<30}  {:<8}".format("Number of parameters: ", params))

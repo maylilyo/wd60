@@ -10,5 +10,6 @@ ray[tune]
 
 # --- Project ---
 cupy-cuda113
-opencv-python
 lpips
+opencv-python
+ptflops

@@ -136,7 +136,10 @@ class SoftSplat(nn.Module):
 
         return [raw_scaled, half_scaled, quarter_scaled]
 
-    def forward(self, img1, img2):
+    def forward(self, img1, img2=None):
+        # For flops calculation
+        if img2 is None:
+            img2 = img1
         # img1, img2: (num_batches, 3, height, width)
 
         # ↓ Optical Flow Estimator
