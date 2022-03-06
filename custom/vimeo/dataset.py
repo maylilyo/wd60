@@ -56,6 +56,7 @@ class Vimeo(Dataset):
         img_list = []
         for img_path in self.path_list[idx // 2]:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = img.transpose(2, 0, 1)
             img = img.astype(np.float32)
             img /= 255
