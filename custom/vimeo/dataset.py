@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from torchvision.transforms import RandomCrop
 import torchvision.transforms.functional as TF
 
 
@@ -14,10 +15,12 @@ class Vimeo(Dataset):
         is_pt=False,
         is_aug=True,
         is_amp=False,
+        is_crop=False,
     ):
         self.is_pt = is_pt
         self.is_aug = is_aug
         self.is_amp = is_amp
+        self.is_crop = is_crop
         if is_pt:
             data_dir = data_dir / "vimeo_pt" / state
             self.path_list = self.get_pt_list(data_dir, state)
@@ -56,6 +59,7 @@ class Vimeo(Dataset):
             return [img_tensor[0], img_tensor[1], img_tensor[2]]
 
         img_list = []
+        crop_params = None
         for img_path in self.path_list[idx // 2]:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -66,6 +70,10 @@ class Vimeo(Dataset):
                 img = img.astype(np.float32)
             img /= 255.0
             img = torch.from_numpy(img)
+            if self.is_crop:
+                if crop_params is None:
+                    crop_params = RandomCrop.get_params(img, output_size=(256, 256))
+                img = TF.crop(img, *crop_params)
             if self.is_aug and idx % 2 == 1:
                 img = TF.hflip(img)
             img_list.append(img)
