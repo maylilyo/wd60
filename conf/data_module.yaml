@@ -3,3 +3,4 @@ data_module:
   batch_size: ???
   test_batch_size: ???
   num_workers: 0
+  is_crop: ???
