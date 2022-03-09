@@ -12,3 +12,4 @@ num_workers: 32
 psnr: true
 ssim: true
 lpips: true
+flops: true

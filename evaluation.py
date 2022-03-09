@@ -66,11 +66,20 @@ def test(cfg):
     model = SoftSplat(cfg.model).to(device)
     model.eval()
 
+    if cfg.flops:
+        with torch.no_grad():
+            with torch.cuda.amp.autocast(enabled=cfg.amp):
+                macs, params = get_model_complexity_info(model, (3, cfg.model.height, cfg.model.width))
+                print("{:<30}  {:<8}".format("Computational complexity: ", macs))
+                print("{:<30}  {:<8}".format("Number of parameters: ", params))
+                return
+
     # Load model
-    weight_path = weight_dir / f"{cfg.name}.pt"
-    print(f"Load {cfg.name} model from {weight_path}")
-    state_dict = torch.load(weight_path)
-    model.load_state_dict(state_dict)
+    if cfg.name != "none":
+        weight_path = weight_dir / f"{cfg.name}.pt"
+        print(f"Load {cfg.name} model from {weight_path}")
+        state_dict = torch.load(weight_path)
+        model.load_state_dict(state_dict)
 
     # Set metrics
     if cfg.psnr:
@@ -113,7 +122,3 @@ def test(cfg):
     if cfg.lpips:
         average_lpips = total_lpips / len(test_dataloader)
         print(f"LPIPS: {average_lpips:.2f}")
-
-    macs, params = get_model_complexity_info(model, (3, 256, 448), verbose=False)
-    print("{:<30}  {:<8}".format("Computational complexity: ", macs))
-    print("{:<30}  {:<8}".format("Number of parameters: ", params))
