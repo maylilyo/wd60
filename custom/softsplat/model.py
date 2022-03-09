@@ -8,7 +8,6 @@ from .grid_net import GridNet
 from .if_net import IFNet
 from .modules import ContextExtractor, MatricUNet
 from .pwc_net import PWCNet
-from .pwc_dc_net import PWCDCNet
 from .softmax_splatting import softmax_splatting
 from .raft.model import RAFT
 
@@ -31,8 +30,6 @@ class SoftSplat(nn.Module):
 
         if self.flow_net_name == "pwcnet":
             self.flow_extractor = PWCNet()
-        elif self.flow_net_name == "pwcdcnet":
-            self.flow_extractor = PWCDCNet()
         elif self.flow_net_name == "ifnet":
             self.flow_extractor = IFNet()
         elif self.flow_net_name in ["raft", "raft_s"]:
@@ -143,7 +140,7 @@ class SoftSplat(nn.Module):
         # img1, img2: (num_batches, 3, height, width)
 
         # ↓ Optical Flow Estimator
-        if self.flow_net_name in ["pwcnet", "pwcdcnet"]:
+        if self.flow_net_name == "pwcnet":
             flow_1to2 = self.flow_extractor(img1, img2)
             flow_2to1 = self.flow_extractor(img2, img1)
             # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
