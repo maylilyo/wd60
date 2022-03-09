@@ -53,6 +53,7 @@ def test(cfg):
         state="test",
         is_pt=False,
         is_aug=False,
+        is_amp=cfg.amp,
     )
     test_dataloader = DataLoader(
         test_dataset,
