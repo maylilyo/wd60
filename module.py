@@ -41,12 +41,13 @@ class CustomModule(pl.LightningModule):
 
         # Load estimator
         if self.cfg.model.flow_extractor == "pwcnet":
+            # https://github.com/sniklaus/pytorch-pwc/blob/master/run.py#L259
             self.model.flow_extractor.load_state_dict(
                 {
                     strKey.replace("module", "net"): tenWeight
                     for strKey, tenWeight in torch.hub.load_state_dict_from_url(
-                        url="http://content.sniklaus.com/github/pytorch-pwc/network-default.pytorch",
-                        file_name="pwc-default",
+                        url="http://content.sniklaus.com/github/pytorch-pwc/network-chairs-things.pytorch",
+                        file_name="pwc-chairs-things",
                     ).items()
                 }
             )
