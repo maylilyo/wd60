@@ -120,6 +120,7 @@ class BasicEncoder(nn.Module):
     def __init__(self, output_dim=128, norm_fn="batch", dropout=0.0, is_list=False):
         super().__init__()
         self.norm_fn = norm_fn
+        self.is_list = is_list
 
         if self.norm_fn == "group":
             self.norm1 = nn.GroupNorm(num_groups=8, num_channels=64)
