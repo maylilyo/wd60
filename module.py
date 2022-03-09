@@ -1,6 +1,7 @@
 # Standard
 
 # PIP
+from ignite.metrics import PSNR, SSIM
 import lpips
 import pytorch_lightning as pl
 import torch
@@ -14,7 +15,6 @@ from torch.optim.lr_scheduler import (
 # Custom
 from custom.softsplat.model import SoftSplat
 import helper.loss as c_loss
-from helper.metric import psnr
 
 
 class CustomModule(pl.LightningModule):
@@ -24,10 +24,13 @@ class CustomModule(pl.LightningModule):
         self.cfg = cfg
 
         self.model = SoftSplat(cfg.model)
-        self.load_pretrained_model()
 
         self.criterion = self.get_loss_function()
-        self.metric_function = psnr
+        self.freeze_module(self.criterion)
+        self.metric_psnr = PSNR(data_range=1.0, device=self.device)
+        self.metric_ssim = SSIM(data_range=1.0, device=self.device)
+
+        self.load_pretrained_model()
 
     def load_pretrained_model(self):
         # Load SoftSplat
@@ -71,8 +74,8 @@ class CustomModule(pl.LightningModule):
     def get_loss_function(self):
         name = self.cfg.module.criterion.lower()
 
-        if name == "RMSE".lower():
-            return c_loss.RMSELoss()
+        if name == "L1".lower():
+            return nn.L1Loss()
         elif name == "MSE".lower():
             return nn.MSELoss()
         elif name == "MAE".lower():
@@ -84,7 +87,7 @@ class CustomModule(pl.LightningModule):
         elif name == "LAP".lower():
             return c_loss.LapLoss()
         elif name == "LPIPS".lower():
-            return lpips.LPIPS(net="alex", verbose=False)
+            return lpips.LPIPS(net="vgg", verbose=False)
 
         raise ValueError(f"{name} is not on the custom criterion list!")
 
@@ -173,13 +176,19 @@ class CustomModule(pl.LightningModule):
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
-        metric = self.metric_function(y_hat, y)
+        self.metric_psnr.update((y_hat, y))
+        psnr_score = self.metric_psnr.compute()
+        self.metric_psnr.reset()
+        self.metric_ssim.update((y_hat, y))
+        ssim_score = self.metric_ssim.compute()
+        self.metric_ssim.reset()
 
         opt = self.optimizers()
         lr = opt.param_groups[0]["lr"]
         self.log("lr", lr, prog_bar=True)
 
-        self.log("train_psnr", metric, prog_bar=True)
+        self.log("train_psnr", psnr_score, prog_bar=True)
+        self.log("train_ssim", ssim_score, prog_bar=True)
         return loss
 
     def training_step_end(self, batch_parts):
@@ -198,10 +207,16 @@ class CustomModule(pl.LightningModule):
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
-        metric = self.metric_function(y_hat, y)
+        self.metric_psnr.update((y_hat, y))
+        psnr_score = self.metric_psnr.compute()
+        self.metric_psnr.reset()
+        self.metric_ssim.update((y_hat, y))
+        ssim_score = self.metric_ssim.compute()
+        self.metric_ssim.reset()
 
         self.log("val_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val_psnr", metric, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val_psnr", psnr_score, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val_ssim", ssim_score, on_step=False, on_epoch=True, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         img1, img2, y = batch
@@ -213,7 +228,13 @@ class CustomModule(pl.LightningModule):
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
-        metric = self.metric_function(y_hat, y)
+        self.metric_psnr.update((y_hat, y))
+        psnr_score = self.metric_psnr.compute()
+        self.metric_psnr.reset()
+        self.metric_ssim.update((y_hat, y))
+        ssim_score = self.metric_ssim.compute()
+        self.metric_ssim.reset()
 
         self.log("test_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("test_psnr", metric, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("test_psnr", psnr_score, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("test_ssim", ssim_score, on_step=False, on_epoch=True, sync_dist=True)

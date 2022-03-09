@@ -13,3 +13,4 @@ cupy-cuda113
 lpips
 opencv-python
 ptflops
+pytorch-ignite

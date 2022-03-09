@@ -4,17 +4,16 @@ from pathlib import Path
 import time
 
 # PIP
+from ignite.metrics import PSNR, SSIM
 from lpips import LPIPS
+from ptflops import get_model_complexity_info
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from ptflops import get_model_complexity_info
 
 # Custom
 from custom.softsplat.model import SoftSplat
 from custom.vimeo.dataset import Vimeo
-from helper.loss import SSIMLoss
-from helper.metric import psnr
 
 
 # Timing utilities
@@ -83,9 +82,9 @@ def test(cfg):
 
     # Set metrics
     if cfg.psnr:
-        calculate_psnr = psnr
+        metric_psnr = PSNR(data_range=1.0, device=device)
     if cfg.ssim:
-        calculate_ssim = SSIMLoss().to(device)
+        metric_ssim = SSIM(data_range=1.0, device=device)
     if cfg.lpips:
         calculate_lpips = LPIPS(net="alex", verbose=False).to(device)
 
@@ -105,9 +104,13 @@ def test(cfg):
 
                 y_hat = model(img1, img2)
                 if cfg.psnr:
-                    total_psnr += calculate_psnr(y_hat, y)
+                    metric_psnr.update((y_hat, y))
+                    total_psnr += metric_psnr.compute()
+                    metric_psnr.reset()
                 if cfg.ssim:
-                    total_ssim += calculate_ssim(y_hat, y)
+                    metric_ssim.update((y_hat, y))
+                    total_ssim += metric_ssim.compute()
+                    metric_ssim.reset()
                 if cfg.lpips:
                     total_lpips += calculate_lpips(y_hat, y).mean()
 
@@ -118,7 +121,7 @@ def test(cfg):
         print(f"PSNR: {average_psnr:.2f}")
     if cfg.ssim:
         average_ssim = total_ssim / len(test_dataloader)
-        print(f"SSIM: {average_ssim:.2f}")
+        print(f"SSIM: {average_ssim:.4f}")
     if cfg.lpips:
         average_lpips = total_lpips / len(test_dataloader)
-        print(f"LPIPS: {average_lpips:.2f}")
+        print(f"LPIPS: {average_lpips:.5f}")
