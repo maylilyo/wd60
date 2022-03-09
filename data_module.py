@@ -23,14 +23,14 @@ class CustomDataModule(LightningDataModule):
             state="train",
             is_pt=False,
             is_aug=True,
-            is_amp=(cfg.trainer.precision == 16),
+            is_amp=(self.cfg.trainer.precision == 16),
         )
         self.test_dataset = Vimeo(
             data_dir=self.data_dir,
             state="test",
             is_pt=False,
             is_aug=False,
-            is_amp=(cfg.trainer.precision == 16),
+            is_amp=(self.cfg.trainer.precision == 16),
         )
 
     def train_dataloader(self):
