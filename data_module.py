@@ -24,6 +24,7 @@ class CustomDataModule(LightningDataModule):
             is_pt=False,
             is_aug=True,
             is_amp=(self.cfg.trainer.precision == 16),
+            is_crop=self.cfg.data_module.is_crop,
         )
         self.test_dataset = Vimeo(
             data_dir=self.data_dir,
@@ -31,6 +32,7 @@ class CustomDataModule(LightningDataModule):
             is_pt=False,
             is_aug=False,
             is_amp=(self.cfg.trainer.precision == 16),
+            is_crop=self.cfg.data_module.is_crop,
         )
 
     def train_dataloader(self):
