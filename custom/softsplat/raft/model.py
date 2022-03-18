@@ -99,6 +99,6 @@ class RAFT(nn.Module):
             coords1 = coords1 + delta_flow
 
         # upsample predictions
-        if up_mask is None:
+        if self.args.small:
             return upflow2(coords1 - coords0)
         return self.upsample_flow(coords1 - coords0, up_mask)
