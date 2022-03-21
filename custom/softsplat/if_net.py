@@ -94,9 +94,9 @@ class IFBlock(nn.Module):
 class IFNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.block0 = IFBlock(3 + 3 + 4, c=128)
-        self.block1 = IFBlock(3 + 3 + 4, c=128)
-        self.block2 = IFBlock(3 + 3 + 4, c=128)
+        self.block0 = IFBlock(3 + 3 + 4, c=90)
+        self.block1 = IFBlock(3 + 3 + 4, c=90)
+        self.block2 = IFBlock(3 + 3 + 4, c=90)
 
     def forward(self, img1, img2, scale_list=[4, 2, 1]):
         # img1, img2: (batch_size, 3, height, width)

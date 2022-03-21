@@ -14,12 +14,10 @@ class Vimeo(Dataset):
         state,  # train, test
         is_pt=False,
         is_aug=True,
-        is_amp=False,
         is_crop=False,
     ):
         self.is_pt = is_pt
         self.is_aug = is_aug
-        self.is_amp = is_amp
         self.is_crop = is_crop
         if is_pt:
             data_dir = data_dir / "vimeo_pt" / state
@@ -64,10 +62,7 @@ class Vimeo(Dataset):
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = img.transpose(2, 0, 1)
-            if self.is_amp:
-                img = img.astype(np.float16)
-            else:
-                img = img.astype(np.float32)
+            img = img.astype(np.float32)
             img /= 255.0
             img = torch.from_numpy(img)
             if self.is_crop:

@@ -22,8 +22,7 @@ class CustomDataModule(LightningDataModule):
             data_dir=self.data_dir,
             state="train",
             is_pt=False,
-            is_aug=True,
-            is_amp=(self.cfg.trainer.precision == 16),
+            is_aug=False,
             is_crop=self.cfg.data_module.is_crop,
         )
         self.test_dataset = Vimeo(
@@ -31,7 +30,6 @@ class CustomDataModule(LightningDataModule):
             state="test",
             is_pt=False,
             is_aug=False,
-            is_amp=(self.cfg.trainer.precision == 16),
             is_crop=self.cfg.data_module.is_crop,
         )
 

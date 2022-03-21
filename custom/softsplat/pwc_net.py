@@ -38,9 +38,7 @@ def backwarp(tenInput, tenFlow):
     # end
 
     if str(tenFlow.shape) not in backwarp_tenPartial:
-        backwarp_tenPartial[str(tenFlow.shape)] = tenFlow.new_ones(
-            [tenFlow.shape[0], 1, tenFlow.shape[2], tenFlow.shape[3]]
-        )
+        backwarp_tenPartial[str(tenFlow.shape)] = tenFlow.new_ones([tenFlow.shape[0], 1, tenFlow.shape[2], tenFlow.shape[3]])
     # end
 
     tenFlow = torch.cat(
@@ -302,9 +300,7 @@ class PWCNet(nn.Module):
                         padding=1,
                     )
                 if intLevel < 6:
-                    self.fltBackwarp = [None, None, None, 5.0, 2.5, 1.25, 0.625, None][
-                        intLevel + 1
-                    ]
+                    self.fltBackwarp = [None, None, None, 5.0, 2.5, 1.25, 0.625, None][intLevel + 1]
 
                 self.netOne = nn.Sequential(
                     nn.Conv2d(
@@ -396,9 +392,7 @@ class PWCNet(nn.Module):
                     tenVolume = F.leaky_relu(
                         input=FunctionCorrelation(
                             tenOne=tenOne,
-                            tenTwo=backwarp(
-                                tenInput=tenTwo, tenFlow=tenFlow * self.fltBackwarp
-                            ),
+                            tenTwo=backwarp(tenInput=tenTwo, tenFlow=tenFlow * self.fltBackwarp),
                         ),
                         negative_slope=0.1,
                         inplace=False,

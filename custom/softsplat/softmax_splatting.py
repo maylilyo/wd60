@@ -210,9 +210,7 @@ def cupy_kernel(func_name, var_object):
             tmp = f"(({tmp})*{stride_list[index]})"
             index_list.append(tmp)
 
-        kernel_name = kernel_name.replace(
-            match_object.group(0), f'({"+".join(index_list)})'
-        )
+        kernel_name = kernel_name.replace(match_object.group(0), f'({"+".join(index_list)})')
 
     while True:
         match_object = re.search("(VALUE_)([0-4])(\()([^\)]+)(\))", kernel_name)
@@ -232,9 +230,7 @@ def cupy_kernel(func_name, var_object):
             tmp = f"(({tmp})*{stride_list[index]})"
             index_list.append(tmp)
 
-        kernel_name = kernel_name.replace(
-            match_object.group(0), tensor_name + f'[{"+".join(index_list)}]'
-        )
+        kernel_name = kernel_name.replace(match_object.group(0), tensor_name + f'[{"+".join(index_list)}]')
 
     return kernel_name
 
@@ -265,13 +261,7 @@ class SoftSplatFunc(torch.autograd.Function):
         output = input.new_zeros([num_samples, input_depth, input_height, input_width])
 
         n = output.nelement()
-        cupy_launch(
-            "kernel_Softsplat_updateOutput",
-            cupy_kernel(
-                "kernel_Softsplat_updateOutput",
-                {"input": input, "flow": flow, "output": output},
-            ),
-        )(
+        cupy_launch("kernel_Softsplat_updateOutput", cupy_kernel("kernel_Softsplat_updateOutput", {"input": input, "flow": flow, "output": output},),)(
             grid=tuple([int((n + 512 - 1) / 512), 1, 1]),
             block=tuple([512, 1, 1]),
             args=[n, input.data_ptr(), flow.data_ptr(), output.data_ptr()],
@@ -296,16 +286,12 @@ class SoftSplatFunc(torch.autograd.Function):
         assert grad_output.is_contiguous()
 
         if self.needs_input_grad[0]:
-            grad_input = input.new_zeros(
-                [num_samples, input_depth, input_height, input_width]
-            )
+            grad_input = input.new_zeros([num_samples, input_depth, input_height, input_width])
         else:
             grad_input = None
 
         if self.needs_input_grad[1]:
-            grad_flow = input.new_zeros(
-                [num_samples, flow_depth, flow_height, flow_width]
-            )
+            grad_flow = input.new_zeros([num_samples, flow_depth, flow_height, flow_width])
         else:
             grad_flow = None
 
@@ -370,10 +356,7 @@ def softmax_splatting(input, flow, metric):
     assert metric is None or metric.shape[1] == 1
 
     input = torch.cat([input * metric.exp(), metric.exp()], dim=1)
-    input = input.float()
-    flow = flow.float()
     out = SoftSplatFunc.apply(input, flow)
-    out = out.type_as(flow)
     normalize = out[:, -1:, :, :]
     normalize[normalize == 0.0] = 1.0
     out = out[:, :-1, :, :] / normalize

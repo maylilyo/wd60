@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from .corr import CorrBlock
 from .extractor import BasicEncoder, SmallEncoder
 from .update import BasicUpdateBlock, SmallUpdateBlock
-from .utils import coords_grid, upflow2
+from .utils import coords_grid, upflow8
 
 
 class RAFT(nn.Module):
@@ -100,5 +100,5 @@ class RAFT(nn.Module):
 
         # upsample predictions
         if self.args.small:
-            return upflow2(coords1 - coords0)
+            return upflow8(coords1 - coords0)
         return self.upsample_flow(coords1 - coords0, up_mask)

@@ -10,6 +10,7 @@ from .modules import ContextExtractor, MatricUNet
 from .pwc_net import PWCNet
 from .softmax_splatting import softmax_splatting
 from .raft.model import RAFT
+from helper.flow_visualization import flow_visualization
 
 
 class SoftSplat(nn.Module):
@@ -46,14 +47,14 @@ class SoftSplat(nn.Module):
                 steps=flow.shape[3],
             )
             horizontal = horizontal.view(1, 1, 1, -1)
-            horizontal = horizontal.expand(-1, -1, flow.shape[2], -1)
+            horizontal = horizontal.repeat(1, 1, flow.shape[2], 1)
             vertical = torch.linspace(
                 start=-1.0 + (1.0 / flow.shape[2]),
                 end=1.0 - (1.0 / flow.shape[2]),
                 steps=flow.shape[2],
             )
             vertical = vertical.view(1, 1, -1, 1)
-            vertical = vertical.expand(-1, -1, -1, flow.shape[3])
+            vertical = vertical.repeat(1, 1, 1, flow.shape[3])
             backwarped = torch.cat([horizontal, vertical], 1)
 
             SoftSplat.backwarp_cache[key] = backwarped
@@ -75,7 +76,7 @@ class SoftSplat(nn.Module):
             grid=grid,
             mode="bilinear",
             padding_mode="zeros",
-            align_corners=True,
+            align_corners=False,
         )
 
     def scale_flow_zero(self, flow):
@@ -141,9 +142,10 @@ class SoftSplat(nn.Module):
 
         # ↓ Optical Flow Estimator
         if self.flow_net_name == "pwcnet":
-            flow_1to2 = self.flow_extractor(img1, img2)
-            flow_2to1 = self.flow_extractor(img2, img1)
-            # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
+            with torch.cuda.amp.autocast(enabled=False):
+                flow_1to2 = self.flow_extractor(img1, img2)
+                flow_2to1 = self.flow_extractor(img2, img1)
+                # flow_1to2, flow_2to1: (num_batches, 2, height / 4, width / 4)
         elif self.flow_net_name in ["raft", "raft_s"]:
             flow_1to2 = self.flow_extractor(img1, img2)
             flow_2to1 = self.flow_extractor(img2, img1)
@@ -190,60 +192,62 @@ class SoftSplat(nn.Module):
         # half_scaled: (num_batches, 1, height / 2, width / 2)
         # quarter_scaled: (num_batches, 1, height / 4, width / 4)
 
-        warped_img1 = softmax_splatting(
-            input=img1,
-            flow=flow_1tot_pyramid[0],
-            metric=self.alpha * tenMetric_ls_1to2[0],
-        )
-        warped_pyramid1_1 = softmax_splatting(
-            input=feature_pyramid1[0],
-            flow=flow_1tot_pyramid[0],
-            metric=self.alpha * tenMetric_ls_1to2[0],
-        )
-        warped_pyramid1_2 = softmax_splatting(
-            input=feature_pyramid1[1],
-            flow=flow_1tot_pyramid[1],
-            metric=self.alpha * tenMetric_ls_1to2[1],
-        )
-        warped_pyramid1_3 = softmax_splatting(
-            input=feature_pyramid1[2],
-            flow=flow_1tot_pyramid[2],
-            metric=self.alpha * tenMetric_ls_1to2[2],
-        )
-        # warped_img1: (num_batches, 3, height, width)
-        # warped_pyramid1_1: (num_batches, 32, height, width)
-        # warped_pyramid1_2: (num_batches, 64, height / 2, width / 2)
-        # warped_pyramid1_3: (num_batches, 96, height / 4, width / 4)
+        with torch.cuda.amp.autocast(enabled=False):
+            warped_img1 = softmax_splatting(
+                input=img1,
+                flow=flow_1tot_pyramid[0],
+                metric=self.alpha * tenMetric_ls_1to2[0],
+            )
+            warped_pyramid1_1 = softmax_splatting(
+                input=feature_pyramid1[0],
+                flow=flow_1tot_pyramid[0],
+                metric=self.alpha * tenMetric_ls_1to2[0],
+            )
+            warped_pyramid1_2 = softmax_splatting(
+                input=feature_pyramid1[1],
+                flow=flow_1tot_pyramid[1],
+                metric=self.alpha * tenMetric_ls_1to2[1],
+            )
+            warped_pyramid1_3 = softmax_splatting(
+                input=feature_pyramid1[2],
+                flow=flow_1tot_pyramid[2],
+                metric=self.alpha * tenMetric_ls_1to2[2],
+            )
+            # warped_img1: (num_batches, 3, height, width)
+            # warped_pyramid1_1: (num_batches, 32, height, width)
+            # warped_pyramid1_2: (num_batches, 64, height / 2, width / 2)
+            # warped_pyramid1_3: (num_batches, 96, height / 4, width / 4)
 
         tenMetric_2to1 = self.l1_loss(img2, target_2to1)
         tenMetric_2to1 = tenMetric_2to1.mean(1, True)
         tenMetric_2to1 = self.matric_unet(tenMetric_2to1, img2)
         tenMetric_ls_2to1 = self.scale_tenMetric(tenMetric_2to1)
 
-        warped_img2 = softmax_splatting(
-            input=img2,
-            flow=flow_2tot_pyramid[0],
-            metric=self.alpha * tenMetric_ls_2to1[0],
-        )
-        warped_pyramid2_1 = softmax_splatting(
-            input=feature_pyramid2[0],
-            flow=flow_2tot_pyramid[0],
-            metric=self.alpha * tenMetric_ls_2to1[0],
-        )
-        warped_pyramid2_2 = softmax_splatting(
-            input=feature_pyramid2[1],
-            flow=flow_2tot_pyramid[1],
-            metric=self.alpha * tenMetric_ls_2to1[1],
-        )
-        warped_pyramid2_3 = softmax_splatting(
-            input=feature_pyramid2[2],
-            flow=flow_2tot_pyramid[2],
-            metric=self.alpha * tenMetric_ls_2to1[2],
-        )
-        # warped_img2: (num_batches, 3, height, width)
-        # warped_pyramid2_1: (num_batches, 32, height, width)
-        # warped_pyramid2_2: (num_batches, 64, height / 2, width / 2)
-        # warped_pyramid2_3: (num_batches, 96, height / 4, width / 4)
+        with torch.cuda.amp.autocast(enabled=False):
+            warped_img2 = softmax_splatting(
+                input=img2,
+                flow=flow_2tot_pyramid[0],
+                metric=self.alpha * tenMetric_ls_2to1[0],
+            )
+            warped_pyramid2_1 = softmax_splatting(
+                input=feature_pyramid2[0],
+                flow=flow_2tot_pyramid[0],
+                metric=self.alpha * tenMetric_ls_2to1[0],
+            )
+            warped_pyramid2_2 = softmax_splatting(
+                input=feature_pyramid2[1],
+                flow=flow_2tot_pyramid[1],
+                metric=self.alpha * tenMetric_ls_2to1[1],
+            )
+            warped_pyramid2_3 = softmax_splatting(
+                input=feature_pyramid2[2],
+                flow=flow_2tot_pyramid[2],
+                metric=self.alpha * tenMetric_ls_2to1[2],
+            )
+            # warped_img2: (num_batches, 3, height, width)
+            # warped_pyramid2_1: (num_batches, 32, height, width)
+            # warped_pyramid2_2: (num_batches, 64, height / 2, width / 2)
+            # warped_pyramid2_3: (num_batches, 96, height / 4, width / 4)
 
         # ↓ Image Synthesis Network
         grid_input_l1 = torch.cat(
@@ -264,5 +268,7 @@ class SoftSplat(nn.Module):
 
         out = self.grid_net(grid_input_l1, grid_input_l2, grid_input_l3)
         # out: (num_batches, 3, height, width)
+
+        out = torch.clamp(out, min=0.0, max=1.0)
 
         return out

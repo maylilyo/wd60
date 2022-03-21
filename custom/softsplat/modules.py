@@ -12,8 +12,6 @@ class ContextExtractor(nn.Module):
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -21,8 +19,6 @@ class ContextExtractor(nn.Module):
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -33,8 +29,6 @@ class ContextExtractor(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -42,8 +36,6 @@ class ContextExtractor(nn.Module):
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -54,8 +46,6 @@ class ContextExtractor(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -63,8 +53,6 @@ class ContextExtractor(nn.Module):
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -86,8 +74,6 @@ class Decoder(nn.Module):
                 out_channels=num_layers * 32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -95,8 +81,6 @@ class Decoder(nn.Module):
                 out_channels=num_layers * 32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -118,8 +102,6 @@ class MatricUNet(nn.Module):
                 out_channels=12,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -131,8 +113,6 @@ class MatricUNet(nn.Module):
                 out_channels=4,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -143,8 +123,6 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -152,8 +130,6 @@ class MatricUNet(nn.Module):
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -164,8 +140,6 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -173,8 +147,6 @@ class MatricUNet(nn.Module):
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -185,8 +157,6 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -194,8 +164,6 @@ class MatricUNet(nn.Module):
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -205,8 +173,6 @@ class MatricUNet(nn.Module):
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -214,8 +180,6 @@ class MatricUNet(nn.Module):
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -226,8 +190,6 @@ class MatricUNet(nn.Module):
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -235,8 +197,6 @@ class MatricUNet(nn.Module):
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -247,8 +207,6 @@ class MatricUNet(nn.Module):
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -256,12 +214,10 @@ class MatricUNet(nn.Module):
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
-        # TODO UpsamplingBilinear2d -> interpolate
+        # TODO Upsample -> interpolate
         self.up_l1 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
             nn.Conv2d(
@@ -269,8 +225,6 @@ class MatricUNet(nn.Module):
                 out_channels=16,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
             nn.Conv2d(
@@ -278,8 +232,6 @@ class MatricUNet(nn.Module):
                 out_channels=16,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
@@ -292,8 +244,6 @@ class MatricUNet(nn.Module):
                 out_channels=1,
                 kernel_size=3,
                 padding=1,
-                dilation=1,
-                bias=True,
             ),
             nn.LeakyReLU(0.2),
         )
