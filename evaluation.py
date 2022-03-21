@@ -53,7 +53,7 @@ def test(cfg):
         state="test",
         is_pt=False,
         is_aug=False,
-        is_amp=cfg.amp,
+        is_crop=True,
     )
     test_dataloader = DataLoader(
         test_dataset,
@@ -94,32 +94,35 @@ def test(cfg):
     total_ssim = 0
     total_lpips = 0
     with torch.no_grad():
-        with torch.cuda.amp.autocast(enabled=cfg.amp):
-            start_timer()
-            for batch in tqdm(test_dataloader):
-                img1, img2, y = batch
-                img1 = img1.to(device)
-                img2 = img2.to(device)
-                if cfg.psnr or cfg.ssim or cfg.lpips:
-                    y = y.to(device)
+        start_timer()
+        for batch in tqdm(test_dataloader):
+            img1, img2, y = batch
+            img1 = img1.to(device)
+            img2 = img2.to(device)
+            if cfg.psnr or cfg.ssim or cfg.lpips:
+                y = y.to(device)
 
+            with torch.cuda.amp.autocast(enabled=cfg.amp):
                 y_hat = model(img1, img2)
-                if cfg.psnr:
-                    metric_psnr.update((y_hat, y))
-                    total_psnr += metric_psnr.compute()
-                    metric_psnr.reset()
-                if cfg.ssim:
-                    metric_ssim.update((y_hat, y))
-                    total_ssim += metric_ssim.compute()
-                    metric_ssim.reset()
-                if cfg.lpips:
-                    total_lpips += calculate_lpips(y_hat, y).mean()
+                if cfg.amp:
+                    y_hat = y_hat.float()
+
+            if cfg.psnr:
+                metric_psnr.update((y_hat, y))
+                total_psnr += metric_psnr.compute()
+                metric_psnr.reset()
+            if cfg.ssim:
+                metric_ssim.update((y_hat, y))
+                total_ssim += metric_ssim.compute()
+                metric_ssim.reset()
+            if cfg.lpips:
+                total_lpips += calculate_lpips(y_hat, y).mean()
 
     end_timer_and_print()
 
     if cfg.psnr:
         average_psnr = total_psnr / len(test_dataloader)
-        print(f"PSNR: {average_psnr:.2f}")
+        print(f"PSNR: {average_psnr:.4f}")
     if cfg.ssim:
         average_ssim = total_ssim / len(test_dataloader)
         print(f"SSIM: {average_ssim:.4f}")

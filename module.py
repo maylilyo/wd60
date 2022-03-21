@@ -51,6 +51,7 @@ class CustomModule(pl.LightningModule):
                     ).items()
                 }
             )
+            # torch.save(self.model.state_dict(), weight_dir / "pwcnet.pt")
         else:
             estimator_path = f"{weight_dir}/{self.cfg.model.flow_extractor}.pt"
             state_dict = torch.load(estimator_path, map_location=self.device)
@@ -59,6 +60,7 @@ class CustomModule(pl.LightningModule):
                     new_key = key.replace("module.", "")
                     state_dict[new_key] = state_dict.pop(key)
             self.model.flow_extractor.load_state_dict(state_dict, strict=True)
+            # self.freeze_module(self.model.flow_extractor)
 
     def freeze_module(self, module):
         for name, child in module.named_children():
@@ -111,6 +113,11 @@ class CustomModule(pl.LightningModule):
                 filter(lambda p: p.requires_grad, self.parameters()),
                 lr=self.cfg.optimizer.lr,
                 weight_decay=1e-5,
+            )
+        elif name == "RAdam".lower():
+            return torch.optim.RAdam(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.cfg.optimizer.lr,
             )
 
         raise ValueError(f"{name} is not on the custom optimizer list!")
@@ -174,6 +181,7 @@ class CustomModule(pl.LightningModule):
         # y: (batch_size, channel, width, height)
 
         y_hat = self(img1, img2)
+        y_hat = y_hat.type_as(y)
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
@@ -205,6 +213,7 @@ class CustomModule(pl.LightningModule):
         # y: (batch_size, channel, width, height)
 
         y_hat = self(img1, img2)
+        y_hat = y_hat.type_as(y)
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
@@ -226,6 +235,7 @@ class CustomModule(pl.LightningModule):
         # y: (batch_size, channel, width, height)
 
         y_hat = self(img1, img2)
+        y_hat = y_hat.type_as(y)
         # y_hat: (batch_size, channel, width, height)
 
         loss = self.criterion(y_hat, y)
