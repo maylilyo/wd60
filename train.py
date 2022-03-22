@@ -45,6 +45,8 @@ def train(cfg):
         swa = StochasticWeightAveraging()
         callback_list.append(swa)
 
+    torch.autograd.set_detect_anomaly(True)
+
     trainer = Trainer(
         logger=wandb_logger,
         callbacks=callback_list,
