@@ -56,9 +56,13 @@ class Vimeo(Dataset):
             img_tensor = torch.load(self.path_list[idx])
             return [img_tensor[0], img_tensor[1], img_tensor[2]]
 
+        if self.is_aug:
+            aug_idx = idx % 4
+            idx = idx // 4
+
         img_list = []
         crop_params = None
-        for img_path in self.path_list[idx // 2]:
+        for img_path in self.path_list[idx]:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = img.transpose(2, 0, 1)
@@ -70,11 +74,11 @@ class Vimeo(Dataset):
                     crop_params = RandomCrop.get_params(img, output_size=(256, 256))
                 img = TF.crop(img, *crop_params)
             if self.is_aug:
-                if idx % 4 == 1:
+                if aug_idx == 1:
                     img = TF.hflip(img)
-                elif idx % 4 == 2:
+                elif aug_idx == 2:
                     img = TF.vflip(img)
-                elif idx % 4 == 3:
+                elif aug_idx == 3:
                     img = TF.rotate(img, 90)
             img_list.append(img)
 
