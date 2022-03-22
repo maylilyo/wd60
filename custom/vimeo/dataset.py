@@ -48,7 +48,7 @@ class Vimeo(Dataset):
 
     def __len__(self):
         if self.is_aug:
-            return len(self.path_list) * 2
+            return len(self.path_list) * 4
         return len(self.path_list)
 
     def __getitem__(self, idx):
@@ -69,8 +69,13 @@ class Vimeo(Dataset):
                 if crop_params is None:
                     crop_params = RandomCrop.get_params(img, output_size=(256, 256))
                 img = TF.crop(img, *crop_params)
-            if self.is_aug and idx % 2 == 1:
-                img = TF.hflip(img)
+            if self.is_aug:
+                if idx % 4 == 1:
+                    img = TF.hflip(img)
+                elif idx % 4 == 2:
+                    img = TF.vflip(img)
+                elif idx % 4 == 3:
+                    img = TF.rotate(img, 90)
             img_list.append(img)
 
         [img1, target, img2] = img_list
