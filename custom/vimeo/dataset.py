@@ -78,9 +78,11 @@ class Vimeo(Dataset):
                     img = TF.hflip(img)
                 elif aug_idx == 2:
                     img = TF.vflip(img)
-                elif aug_idx == 3:
-                    img = TF.rotate(img, 90)
             img_list.append(img)
+
+        if self.is_aug:
+            if aug_idx == 3:
+                return img_list
 
         [img1, target, img2] = img_list
         return [img1, img2, target]
