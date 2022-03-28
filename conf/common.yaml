@@ -2,3 +2,4 @@ common:
   work_dir: ${hydra:runtime.cwd}
   seed: ???
   weight_dir: weights
+  weight_name: [pretrained weight name]

@@ -35,7 +35,7 @@ class CustomModule(pl.LightningModule):
     def load_pretrained_model(self):
         # Load SoftSplat
         weight_dir = f"{self.cfg.common.work_dir}/weights"
-        softsplat_path = f"{weight_dir}/softsplat.pt"
+        softsplat_path = f"{weight_dir}/{self.cfg.common.weight_name}.pt"
         state_dict = torch.load(softsplat_path, map_location=self.device)
         self.model.load_state_dict(state_dict, strict=False)
 
