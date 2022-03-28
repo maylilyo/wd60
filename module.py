@@ -119,6 +119,11 @@ class CustomModule(pl.LightningModule):
                 filter(lambda p: p.requires_grad, self.parameters()),
                 lr=self.cfg.optimizer.lr,
             )
+        elif name == "AdaMax".lower():
+            return torch.optim.Adamax(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.cfg.optimizer.lr,
+            )
 
         raise ValueError(f"{name} is not on the custom optimizer list!")
 
