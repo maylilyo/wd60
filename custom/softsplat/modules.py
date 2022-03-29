@@ -13,14 +13,14 @@ class ContextExtractor(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.layer2 = nn.Sequential(
             nn.Conv2d(
@@ -30,14 +30,14 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.layer3 = nn.Sequential(
             nn.Conv2d(
@@ -47,14 +47,14 @@ class ContextExtractor(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
 
     def forward(self, x):
@@ -75,14 +75,14 @@ class Decoder(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=num_layers * 32,
                 out_channels=num_layers * 32,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
 
     def forward(self, x1, x2):
@@ -103,7 +103,7 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         # conv_metric: 양쪽 사진의 loss를 1 channel에서 4 channels로 바꿈
         # 동시에 background의 중요도를 계산
@@ -114,7 +114,7 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.down_l1 = nn.Sequential(
             nn.Conv2d(
@@ -124,14 +124,14 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.down_l2 = nn.Sequential(
             nn.Conv2d(
@@ -141,14 +141,14 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.down_l3 = nn.Sequential(
             nn.Conv2d(
@@ -158,14 +158,14 @@ class MatricUNet(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.middle = nn.Sequential(
             nn.Conv2d(
@@ -174,14 +174,14 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=96,
                 out_channels=96,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.up_l3 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
@@ -191,14 +191,14 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=64,
                 out_channels=64,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.up_l2 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
@@ -208,14 +208,14 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=32,
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         # TODO Upsample -> interpolate
         self.up_l1 = nn.Sequential(
@@ -226,14 +226,14 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
             nn.Conv2d(
                 in_channels=16,
                 out_channels=16,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
         self.decoder3 = Decoder(3)
         self.decoder2 = Decoder(2)
@@ -245,7 +245,7 @@ class MatricUNet(nn.Module):
                 kernel_size=3,
                 padding=1,
             ),
-            nn.LeakyReLU(0.2),
+            nn.PReLU(),
         )
 
     def forward(self, metric, img):
