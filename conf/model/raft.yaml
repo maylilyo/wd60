@@ -1,6 +1,4 @@
 flow_extractor: raft
-width: 448
-height: 256
 
 raft:
   iters: 32

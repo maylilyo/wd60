@@ -4,11 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # Custom
-from .grid_net import GridNet
 from .if_net import IFNet
-from .modules import ContextExtractor, MatricUNet
+from .modules import ContextExtractor, MetricUNet
 from .pwc_net import PWCNet
 from .softmax_splatting import softmax_splatting
+from .synthesis_net import SynthesisNet
 from .raft.model import RAFT
 from helper.flow_visualization import flow_visualization
 
@@ -19,14 +19,14 @@ class SoftSplat(nn.Module):
     def __init__(self, model_option):
         super().__init__()
         self.flow_net_name = model_option.flow_extractor
-        self.height = model_option.height
-        self.width = model_option.width
-        self.scale = 1.0
 
         self.feature_extractor = ContextExtractor()
-        self.alpha = nn.Parameter(-torch.ones(1))
-        self.matric_unet = MatricUNet()
-        self.grid_net = GridNet()
+        self.alpha = nn.Parameter(torch.ones(1))
+        self.metric_unet = MetricUNet()
+        self.synthesis_net = SynthesisNet(
+            channel_list=[32, 64, 96],
+            num_column=6,
+        )
         self.l1_loss = nn.L1Loss(reduction="none")
 
         if self.flow_net_name == "pwcnet":
@@ -76,63 +76,59 @@ class SoftSplat(nn.Module):
             grid=grid,
             mode="bilinear",
             padding_mode="zeros",
-            align_corners=False,
+            align_corners=True,
         )
 
     def scale_flow_zero(self, flow):
-        raw_scaled = (self.scale / 1) * F.interpolate(
-            input=flow,
-            size=(self.height, self.width),
-            mode="bilinear",
-            align_corners=True,
+        raw_scaled = (
+            F.interpolate(
+                input=flow,
+                scale_factor=4,
+                mode="bilinear",
+                align_corners=True,
+            )
+            * 4.0
         )
         return raw_scaled
 
     def scale_flow(self, flow):
         # https://github.com/sniklaus/softmax-splatting/issues/12
 
-        raw_scaled = (self.scale / 1) * F.interpolate(
-            input=flow,
-            size=(self.height, self.width),
-            mode="bilinear",
-            align_corners=True,
+        raw_scaled = (
+            F.interpolate(
+                input=flow,
+                scale_factor=4,
+                mode="bilinear",
+                align_corners=True,
+            )
+            * 4.0
         )
-        half_scaled = (self.scale / 2) * F.interpolate(
-            input=flow,
-            size=(self.height // 2, self.width // 2),
-            mode="bilinear",
-            align_corners=True,
+        half_scaled = (
+            F.interpolate(
+                input=flow,
+                scale_factor=2,
+                mode="bilinear",
+                align_corners=True,
+            )
+            * 2.0
         )
-        quarter_scaled = (self.scale / 4) * F.interpolate(
-            input=flow,
-            size=(self.height // 4, self.width // 4),
-            mode="bilinear",
-            align_corners=True,
-        )
+        return [raw_scaled, half_scaled, flow]
 
-        return [raw_scaled, half_scaled, quarter_scaled]
-
-    def scale_tenMetric(self, tenMetric):
-        raw_scaled = (self.scale / 1) * F.interpolate(
-            input=tenMetric,
-            size=(self.height, self.width),
-            mode="bilinear",
-            align_corners=True,
-        )
+    def scale_tenMetric(self, metric):
         half_scaled = F.interpolate(
-            input=tenMetric,
-            size=(self.height // 2, self.width // 2),
+            input=metric,
+            scale_factor=0.5,
             mode="bilinear",
             align_corners=True,
         )
         quarter_scaled = F.interpolate(
-            input=tenMetric,
-            size=(self.height // 4, self.width // 4),
+            input=metric,
+            scale_factor=0.25,
             mode="bilinear",
             align_corners=True,
         )
 
-        return [raw_scaled, half_scaled, quarter_scaled]
+        return [metric, half_scaled, quarter_scaled]
 
     def forward(self, img1, img2=None):
         # For flops calculation
@@ -183,9 +179,10 @@ class SoftSplat(nn.Module):
         tenMetric_1to2 = tenMetric_1to2.mean(1, True)
         # tenMetric_1to2: (num_batches, 1, height, width)
 
-        tenMetric_1to2 = self.matric_unet(tenMetric_1to2, img1)
+        tenMetric_1to2 = self.metric_unet(tenMetric_1to2, img1)
         # tenMetric_1to2: (num_batches, 1, height, width)
 
+        # tenMetric_1to2 = torch.clamp(tenMetric_1to2, min=-1.0, max=1.0)
         tenMetric_ls_1to2 = self.scale_tenMetric(tenMetric_1to2)
         # tenMetric_ls_1to2: [raw_scaled, half_scaled, quarter_scaled]
         # raw_scaled: (num_batches, 1, height, width)
@@ -220,7 +217,8 @@ class SoftSplat(nn.Module):
 
         tenMetric_2to1 = self.l1_loss(img2, target_2to1)
         tenMetric_2to1 = tenMetric_2to1.mean(1, True)
-        tenMetric_2to1 = self.matric_unet(tenMetric_2to1, img2)
+        tenMetric_2to1 = self.metric_unet(tenMetric_2to1, img2)
+        # tenMetric_2to1 = torch.clamp(tenMetric_2to1, min=-1.0, max=1.0)
         tenMetric_ls_2to1 = self.scale_tenMetric(tenMetric_2to1)
 
         with torch.cuda.amp.autocast(enabled=False):
@@ -250,23 +248,23 @@ class SoftSplat(nn.Module):
             # warped_pyramid2_3: (num_batches, 96, height / 4, width / 4)
 
         # ↓ Image Synthesis Network
-        grid_input_l1 = torch.cat(
+        synthesis_1 = torch.cat(
             [warped_img1, warped_pyramid1_1, warped_img2, warped_pyramid2_1],
             dim=1,
         )
-        grid_input_l2 = torch.cat(
+        synthesis_2 = torch.cat(
             [warped_pyramid1_2, warped_pyramid2_2],
             dim=1,
         )
-        grid_input_l3 = torch.cat(
+        synthesis_3 = torch.cat(
             [warped_pyramid1_3, warped_pyramid2_3],
             dim=1,
         )
-        # grid_input_l1: (num_batches, 70, height, width)
-        # grid_input_l2: (num_batches, 128, height / 2, width / 2)
-        # grid_input_l3: (num_batches, 192, height / 4, width / 4)
+        # synthesis_1: (num_batches, 70, height, width)
+        # synthesis_2: (num_batches, 128, height / 2, width / 2)
+        # synthesis_3: (num_batches, 192, height / 4, width / 4)
 
-        out = self.grid_net(grid_input_l1, grid_input_l2, grid_input_l3)
+        out = self.synthesis_net(synthesis_1, synthesis_2, synthesis_3)
         # out: (num_batches, 3, height, width)
 
         out = torch.clamp(out, min=0.0, max=1.0)
