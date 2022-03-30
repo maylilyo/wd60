@@ -63,206 +63,116 @@ class ContextExtractor(nn.Module):
         layer3 = self.layer3(layer2)
         return [layer1, layer2, layer3]
 
-
-class Decoder(nn.Module):
-    def __init__(self, num_layers):
-        super().__init__()
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(
-                in_channels=num_layers * 32 * 2,
-                out_channels=num_layers * 32,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=num_layers * 32,
-                out_channels=num_layers * 32,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-
-    def forward(self, x1, x2):
-        x1 = torch.cat((x1, x2), 1)
-        x1 = self.conv(x1)
-        return x1
-
-
-class MatricUNet(nn.Module):
+class MetricUNet(nn.Module):
+    # https://github.com/sniklaus/softmax-splatting/issues/17
+    # lateral_img: Color를 유지하면서 3 channels를 12 channels로 변경
+    # lateral_metric: 사진의 loss를 1 channel에서 4 channels로 바꿈. 동시에 background의 중요도를 계산
     def __init__(self):
         super().__init__()
+        self.lateral_img = self.first_lateral(3, 12)
+        self.lateral_metric = self.first_lateral(1, 4)
+        self.downsampling_1 = self.downsampling(16, 32)
+        self.downsampling_2 = self.downsampling(32, 64)
+        self.downsampling_3 = self.downsampling(64, 96)
+        self.lateral_0 = self.lateral(16, 16)
+        self.lateral_1 = self.lateral(32, 32)
+        self.lateral_2 = self.lateral(64, 64)
+        self.lateral_3 = self.lateral(96, 96)
+        self.upsampling_1 = self.upsampling(32, 16)
+        self.upsampling_2 = self.upsampling(64, 32)
+        self.upsampling_3 = self.upsampling(96, 64)
+        self.lateral_out = self.lateral(16, 1)
 
-        # conv_img: Color를 유지하면서 3 channels를 12 channels로 변경
-        self.conv_img = nn.Sequential(
+    def first_lateral(self, ch_in, ch_out):
+        return nn.Sequential(
             nn.Conv2d(
-                in_channels=3,
-                out_channels=12,
+                in_channels=ch_in,
+                out_channels=ch_out,
                 kernel_size=3,
                 padding=1,
             ),
             nn.PReLU(),
-        )
-        # conv_metric: 양쪽 사진의 loss를 1 channel에서 4 channels로 바꿈
-        # 동시에 background의 중요도를 계산
-        self.conv_metric = nn.Sequential(
             nn.Conv2d(
-                in_channels=1,
-                out_channels=4,
+                in_channels=ch_out,
+                out_channels=ch_out,
+                kernel_size=3,
+                padding=1,
+            ),
+        )
+
+    def lateral(self, ch_in, ch_out):
+        return nn.Sequential(
+            nn.PReLU(),
+            nn.Conv2d(
+                in_channels=ch_in,
+                out_channels=ch_out,
                 kernel_size=3,
                 padding=1,
             ),
             nn.PReLU(),
-        )
-        self.down_l1 = nn.Sequential(
             nn.Conv2d(
-                in_channels=16,
-                out_channels=32,
+                in_channels=ch_out,
+                out_channels=ch_out,
+                kernel_size=3,
+                padding=1,
+            ),
+        )
+
+    def downsampling(self, ch_in, ch_out):
+        return nn.Sequential(
+            nn.PReLU(),
+            nn.Conv2d(
+                in_channels=ch_in,
+                out_channels=ch_out,
                 kernel_size=3,
                 stride=2,
                 padding=1,
             ),
             nn.PReLU(),
             nn.Conv2d(
-                in_channels=32,
-                out_channels=32,
+                in_channels=ch_out,
+                out_channels=ch_out,
                 kernel_size=3,
                 padding=1,
             ),
-            nn.PReLU(),
-        )
-        self.down_l2 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=64,
-                kernel_size=3,
-                stride=2,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=64,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        self.down_l3 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=96,
-                kernel_size=3,
-                stride=2,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=96,
-                out_channels=96,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        self.middle = nn.Sequential(
-            nn.Conv2d(
-                in_channels=96,
-                out_channels=96,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=96,
-                out_channels=96,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        self.up_l3 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
-            nn.Conv2d(
-                in_channels=96,
-                out_channels=64,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=64,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        self.up_l2 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
-            nn.Conv2d(
-                in_channels=64,
-                out_channels=32,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=32,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        # TODO Upsample -> interpolate
-        self.up_l1 = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=16,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-            nn.Conv2d(
-                in_channels=16,
-                out_channels=16,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
-        )
-        self.decoder3 = Decoder(3)
-        self.decoder2 = Decoder(2)
-        self.decoder1 = Decoder(1)
-        self.out_seq = nn.Sequential(
-            nn.Conv2d(
-                in_channels=16,
-                out_channels=1,
-                kernel_size=3,
-                padding=1,
-            ),
-            nn.PReLU(),
         )
 
-    def forward(self, metric, img):
-        conv_metric = self.conv_metric(metric)
-        conv_img = self.conv_img(img)
+    def upsampling(self, ch_in, ch_out):
+        return nn.Sequential(
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
+            nn.PReLU(),
+            nn.Conv2d(
+                in_channels=ch_in,
+                out_channels=ch_out,
+                kernel_size=3,
+                padding=1,
+            ),
+            nn.PReLU(),
+            nn.Conv2d(
+                in_channels=ch_out,
+                out_channels=ch_out,
+                kernel_size=3,
+                padding=1,
+            ),
+        )
 
-        input_l0 = torch.cat([conv_metric, conv_img], 1)
-        down_l1 = self.down_l1(input_l0)
-        down_l2 = self.down_l2(down_l1)
-        down_l3 = self.down_l3(down_l2)
-        middle = self.middle(down_l3)
-        up_l3 = self.decoder3(down_l3, middle)
-        up_l2 = self.up_l3(up_l3)
-        up_l2 = self.decoder2(down_l2, up_l2)
-        up_l1 = self.up_l2(up_l2)
-        up_l1 = self.decoder1(down_l1, up_l1)
-        out = self.up_l1(up_l1)
+    def forward(self, img, metric):
+        img = self.lateral_img(img)
+        metric = self.lateral_metric(metric)
+        x0 = torch.cat([img, metric], 1)
 
-        out = self.out_seq(out)
-        return out
+        x1 = self.downsampling_1(x0)  # w/2, h/2, 32
+        x2 = self.downsampling_2(x1)  # w/4, h/4, 64
+        x3 = self.downsampling_3(x2)  # w/8, h/8, 96
+
+        x0 = self.lateral_0(x0)  # w/1, h/1, 16
+        x1 = self.lateral_1(x1)  # w/2, h/2, 32
+        x2 = self.lateral_2(x2)  # w/4, h/4, 64
+        x3 = self.lateral_3(x3)  # w/8, h/8, 96
+
+        x2 = self.upsampling_3(x3) + x2  # w/4, h/4, 64
+        x1 = self.upsampling_2(x2) + x1  # w/2, h/2, 32
+        x0 = self.upsampling_1(x1) + x0  # w/1, h/1, 16
+
+        x0 = self.lateral_out(x0)
+        return x0

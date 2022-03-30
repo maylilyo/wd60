@@ -355,7 +355,9 @@ class SoftSplatFunc(torch.autograd.Function):
 def softmax_splatting(input, flow, metric):
     assert metric is None or metric.shape[1] == 1
 
-    input = torch.cat([input * metric.exp(), metric.exp()], dim=1)
+    # https://github.com/sniklaus/softmax-splatting/issues/38
+    metric = metric.clip(None, 20.0).exp()
+    input = torch.cat([input * metric, metric], dim=1)
     out = SoftSplatFunc.apply(input, flow)
     normalize = out[:, -1:, :, :]
     normalize[normalize == 0.0] = 1.0

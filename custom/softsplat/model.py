@@ -80,28 +80,22 @@ class SoftSplat(nn.Module):
         )
 
     def scale_flow_zero(self, flow):
-        raw_scaled = (
-            F.interpolate(
-                input=flow,
-                scale_factor=4,
-                mode="bilinear",
-                align_corners=True,
-            )
-            * 4.0
+        raw_scaled = F.interpolate(
+            input=flow,
+            scale_factor=4,
+            mode="bilinear",
+            align_corners=True,
         )
         return raw_scaled
 
     def scale_flow(self, flow):
         # https://github.com/sniklaus/softmax-splatting/issues/12
 
-        raw_scaled = (
-            F.interpolate(
-                input=flow,
-                scale_factor=4,
-                mode="bilinear",
-                align_corners=True,
-            )
-            * 4.0
+        raw_scaled = F.interpolate(
+            input=flow,
+            scale_factor=4,
+            mode="bilinear",
+            align_corners=True,
         )
         half_scaled = (
             F.interpolate(
@@ -110,9 +104,10 @@ class SoftSplat(nn.Module):
                 mode="bilinear",
                 align_corners=True,
             )
-            * 2.0
+            / 2.0
         )
-        return [raw_scaled, half_scaled, flow]
+        quarter_scaled = flow / 4.0
+        return [raw_scaled, half_scaled, quarter_scaled]
 
     def scale_tenMetric(self, metric):
         half_scaled = F.interpolate(
@@ -127,7 +122,6 @@ class SoftSplat(nn.Module):
             mode="bilinear",
             align_corners=True,
         )
-
         return [metric, half_scaled, quarter_scaled]
 
     def forward(self, img1, img2=None):
@@ -179,10 +173,9 @@ class SoftSplat(nn.Module):
         tenMetric_1to2 = tenMetric_1to2.mean(1, True)
         # tenMetric_1to2: (num_batches, 1, height, width)
 
-        tenMetric_1to2 = self.metric_unet(tenMetric_1to2, img1)
+        tenMetric_1to2 = self.metric_unet(img1, tenMetric_1to2)
         # tenMetric_1to2: (num_batches, 1, height, width)
 
-        # tenMetric_1to2 = torch.clamp(tenMetric_1to2, min=-1.0, max=1.0)
         tenMetric_ls_1to2 = self.scale_tenMetric(tenMetric_1to2)
         # tenMetric_ls_1to2: [raw_scaled, half_scaled, quarter_scaled]
         # raw_scaled: (num_batches, 1, height, width)
@@ -217,8 +210,7 @@ class SoftSplat(nn.Module):
 
         tenMetric_2to1 = self.l1_loss(img2, target_2to1)
         tenMetric_2to1 = tenMetric_2to1.mean(1, True)
-        tenMetric_2to1 = self.metric_unet(tenMetric_2to1, img2)
-        # tenMetric_2to1 = torch.clamp(tenMetric_2to1, min=-1.0, max=1.0)
+        tenMetric_2to1 = self.metric_unet(img2, tenMetric_2to1)
         tenMetric_ls_2to1 = self.scale_tenMetric(tenMetric_2to1)
 
         with torch.cuda.amp.autocast(enabled=False):
